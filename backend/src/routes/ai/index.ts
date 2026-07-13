@@ -52,7 +52,8 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         system,
         messages: [{ role: "user", content: texto }],
       });
-      const raw = msg.content.find((c) => c.type === "text")?.text ?? "";
+      const block = msg.content.find((c) => c.type === "text");
+const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
       return reply.internalServerError(err instanceof Error ? err.message : "Falha na IA");
@@ -85,7 +86,8 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
           ],
         }],
       });
-      const raw = msg.content.find((c) => c.type === "text")?.text ?? "";
+      const block = msg.content.find((c) => c.type === "text");
+const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
       return reply.internalServerError(err instanceof Error ? err.message : "Falha na IA");

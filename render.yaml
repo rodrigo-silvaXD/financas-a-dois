@@ -7,7 +7,8 @@ services:
     runtime: node
     plan: free                    # ponytail: começa free; 15 min idle = cold start ~30s
     rootDir: backend
-    buildCommand: npm install && npm run build
+    # --include=dev força devDependencies (tsc, @types/node) mesmo com NODE_ENV=production.
+    buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /health
     autoDeploy: true              # deploy no push em `main`
