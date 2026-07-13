@@ -1,0 +1,25 @@
+# deps
+node_modules
+
+# build
+dist
+.next
+out
+build
+
+# env — mantém .env.example rastreado
+.env
+.env.*.local
+
+# runtime / cache
+*.log
+.DS_Store
+tsconfig.tsbuildinfo
+coverage
+
+# deploy caches
+.vercel
+
+# IDE
+.vscode
+.idea

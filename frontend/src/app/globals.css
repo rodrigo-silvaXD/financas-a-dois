@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens como CSS vars (rgb sem prefixo, para Tailwind aplicar alpha) */
+:root {
+  --canvas:        248 249 250;   /* #F8F9FA */
+  --surface:       253 253 253;   /* #FDFDFD */
+  --surface-muted: 241 242 245;   /* #F1F2F5 */
+  --ink:            26  26  46;   /* #1A1A2E */
+  --ink-muted:      91  91 114;   /* #5B5B72 */
+  --ink-subtle:    138 143 160;   /* #8A8FA0 */
+  --hairline:      230 231 235;   /* #E6E7EB */
+
+  --brand:          76  95 168;   /* #4C5FA8 — navy indigo desaturado */
+  --brand-hover:    62  79 146;   /* #3E4F92 */
+  --brand-ink:     253 253 253;
+
+  --accent:        249 112 102;   /* #F97066 */
+
+  --success:        16 185 129;
+  --warning:       245 158  11;
+  --danger:        239  68  68;
+}
+
+.dark {
+  --canvas:         15  17  23;   /* #0F1117 */
+  --surface:        23  26  34;   /* #171A22 */
+  --surface-muted:  33  36  48;   /* #212430 */
+  --ink:           232 234 237;   /* #E8EAED */
+  --ink-muted:     160 164 176;   /* #A0A4B0 */
+  --ink-subtle:    107 111 124;   /* #6B6F7C */
+  --hairline:       42  45  56;   /* #2A2D38 */
+
+  --brand:         138 151 212;   /* #8A97D4 — lavanda navy */
+  --brand-hover:   162 174 224;   /* #A2AEE0 */
+  --brand-ink:      15  17  23;
+
+  --accent:        251 138 128;
+
+  --success:        52 211 153;
+  --warning:       251 191  36;
+  --danger:        248 113 113;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: rgb(var(--canvas));
+  color: rgb(var(--ink));
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+@layer utilities {
+  .safe-top    { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}

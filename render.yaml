@@ -1,0 +1,38 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Uso: no Render, "New" → "Blueprint" → aponta pro repo. Este arquivo é lido da raiz.
+
+services:
+  - type: web
+    name: financas-a-dois-backend
+    runtime: node
+    plan: free                    # ponytail: começa free; 15 min idle = cold start ~30s
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true              # deploy no push em `main`
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # CORS — CSV: localhost + URL da Vercel de produção. Ajuste depois do deploy do frontend.
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+      # Supabase — copie do Dashboard → Settings → API.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
+      # Anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+
+      # JWT — Render gera valor aleatório e seguro.
+      - key: JWT_SECRET
+        generateValue: true
