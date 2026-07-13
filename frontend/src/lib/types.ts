@@ -24,8 +24,10 @@ export type TransactionRow = {
   categoria_id: string | null;
   descricao: string | null;
   data: string;                    // YYYY-MM-DD
-  origem: "manual" | "importado" | "ia_texto" | "ia_foto";
+  origem: "manual" | "importado" | "ia_texto" | "ia_foto" | "recorrente";
   recorrente: boolean;
+  recorrente_id: string | null;
+  parcelamento_id: string | null;
   parcela_atual: number | null;
   parcela_total: number | null;
   created_at: string;

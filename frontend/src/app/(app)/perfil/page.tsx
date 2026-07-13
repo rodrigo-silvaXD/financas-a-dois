@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronRight, LogOut, Mail, Pencil, Sun, Moon, Monitor,
-  Tags, Users,
+  ChevronRight, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
+  Tags, Target, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -143,16 +143,32 @@ export default function PerfilPage() {
           </SectionCard>
         </div>
 
-        {/* ── Categorias ── */}
+        {/* ── Financeiro ── */}
         <div>
-          <SectionTitle>Categorias</SectionTitle>
-          <Link href="/perfil/categorias">
-            <Card interactive className="flex items-center gap-3 p-4">
-              <Tags size={20} className="text-ink-muted" />
-              <span className="flex-1 text-body text-ink">Minhas categorias</span>
-              <ChevronRight size={18} className="text-ink-subtle" />
-            </Card>
-          </Link>
+          <SectionTitle>Financeiro</SectionTitle>
+          <div className="space-y-2">
+            <Link href="/perfil/categorias">
+              <Card interactive className="flex items-center gap-3 p-4">
+                <Tags size={20} className="text-ink-muted" />
+                <span className="flex-1 text-body text-ink">Minhas categorias</span>
+                <ChevronRight size={18} className="text-ink-subtle" />
+              </Card>
+            </Link>
+            <Link href="/perfil/recorrentes">
+              <Card interactive className="flex items-center gap-3 p-4">
+                <Repeat size={20} className="text-ink-muted" />
+                <span className="flex-1 text-body text-ink">Gastos recorrentes</span>
+                <ChevronRight size={18} className="text-ink-subtle" />
+              </Card>
+            </Link>
+            <Link href="/objetivos">
+              <Card interactive className="flex items-center gap-3 p-4">
+                <Target size={20} className="text-ink-muted" />
+                <span className="flex-1 text-body text-ink">Meus objetivos</span>
+                <ChevronRight size={18} className="text-ink-subtle" />
+              </Card>
+            </Link>
+          </div>
         </div>
 
         {/* ── Preferências ── */}

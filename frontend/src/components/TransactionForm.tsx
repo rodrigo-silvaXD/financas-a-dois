@@ -11,11 +11,12 @@ import type { Category, TransactionRow } from "@/lib/types";
 
 export type TransactionDraft = {
   tipo: "gasto" | "entrada";
-  valor: number;
+  valor: number;               // valor por parcela (não o total quando parcelado)
   categoria_id: string | null;
   descricao: string | null;
-  data: string;       // YYYY-MM-DD
+  data: string;                // YYYY-MM-DD — data da 1ª parcela
   origem: TransactionRow["origem"];
+  parcelas?: number;           // >1 => cria N linhas nos meses seguintes
 };
 
 interface Props {
@@ -36,6 +37,8 @@ export function TransactionForm({
   const [categoriaId, setCategoriaId] = useState<string | null>(inicial?.categoria_id ?? null);
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
   const [data, setData]           = useState(inicial?.data ?? todayISO());
+  const [parcelado, setParcelado] = useState(false);
+  const [parcelasStr, setParcelasStr] = useState("2");
   const [erro, setErro]           = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
 
@@ -56,13 +59,20 @@ export function TransactionForm({
     if (valor <= 0) { setErro("Informe um valor maior que zero."); return; }
     setErro(null); setSaving(true);
     try {
+      const parcelas = tipo === "gasto" && parcelado
+        ? Math.max(2, Math.min(60, Number(parcelasStr) || 2))
+        : 1;
+      // Valor digitado é o TOTAL da compra parcelada — dividimos por N.
+      const valorPorParcela = parcelas > 1 ? +(valor / parcelas).toFixed(2) : valor;
+
       await onSubmit({
         tipo,
-        valor,
+        valor: valorPorParcela,
         categoria_id: categoriaId,
         descricao: descricao.trim() || null,
         data,
         origem: inicial?.origem ?? "manual",
+        parcelas: parcelas > 1 ? parcelas : undefined,
       });
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao salvar.");
@@ -144,6 +154,28 @@ export function TransactionForm({
         value={data}
         onChange={(e) => setData(e.target.value)}
       />
+
+      {/* Parcelamento — só para gastos */}
+      {tipo === "gasto" && (
+        <div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={parcelado} onChange={(e) => setParcelado(e.target.checked)} />
+            <span className="text-bodysm text-ink">É parcelado?</span>
+          </label>
+          {parcelado && (
+            <div className="mt-2 flex items-center gap-2">
+              <input inputMode="numeric" min={2} max={60}
+                value={parcelasStr} onChange={(e) => setParcelasStr(e.target.value.replace(/\D/g, ""))}
+                className="h-11 w-20 rounded-md bg-surface-muted px-3 text-body text-ink text-center outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
+              <span className="text-bodysm text-ink-muted">
+                parcelas de {parseBRL(valorStr) > 0
+                  ? "R$ " + formatBRNumber(parseBRL(valorStr) / Math.max(2, Number(parcelasStr) || 2))
+                  : "R$ 0,00"}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {erro && <p className="text-caption text-danger">{erro}</p>}
 
