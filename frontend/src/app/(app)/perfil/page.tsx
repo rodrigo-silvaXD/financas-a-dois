@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronRight, LogOut, Mail, Pencil, Sun, Moon, Monitor,
-  Tags, User as UserIcon, Users,
+  Tags, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";

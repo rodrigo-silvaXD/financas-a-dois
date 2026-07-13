@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Plus, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -25,14 +25,14 @@ export default function CategoriasPage() {
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState<Draft | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from("categories")
       .select("*").eq("user_id", user.id).order("ordem");
     setCats((data ?? []) as Category[]);
     setLoading(false);
-  }
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [user]);
+  }, [user]);
+  useEffect(() => { load(); }, [load]);
 
   function abrirNovo() {
     setDraft({ nome: "", icone: "more-horizontal", cor: null, ativa: true, ordem: (cats.at(-1)?.ordem ?? 0) + 1 });

@@ -13,6 +13,23 @@ import { parseBRL, todayISO } from "@/lib/format";
 import { useToast } from "@/components/Toast";
 import type { Category } from "@/lib/types";
 
+// Tipos mínimos da Web Speech API — não existem no lib.dom por default.
+type SpeechRecognitionResult = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
+type SpeechRecognition = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: (e: SpeechRecognitionResult) => void;
+  onend: () => void;
+  start(): void;
+  stop(): void;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognition;
+type WindowWithSpeech = Window & {
+  SpeechRecognition?: SpeechRecognitionCtor;
+  webkitSpeechRecognition?: SpeechRecognitionCtor;
+};
+
 // Draft final já resolvido (com categoria_id, não nome).
 type ParsedDraft = {
   tipo: "gasto" | "entrada";
@@ -39,7 +56,7 @@ export default function NovoTextoPage() {
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
-  const recRef = useRef<any>(null);
+  const recRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -54,10 +71,12 @@ export default function NovoTextoPage() {
   function toggleRec() {
     if (!speechSupported) return;
     if (recording) { recRef.current?.stop(); return; }
-    const SR: any = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    const w = window as WindowWithSpeech;
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) return;
     const rec = new SR();
     rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
-    rec.onresult = (e: any) =>
+    rec.onresult = (e: SpeechRecognitionResult) =>
       setTexto((prev) => (prev ? prev + " " : "") + e.results[0][0].transcript);
     rec.onend = () => setRecording(false);
     rec.start(); recRef.current = rec; setRecording(true);
