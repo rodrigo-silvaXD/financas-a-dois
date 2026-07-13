@@ -7,6 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { cn } from "@/lib/cn";
+import { parseBRL } from "@/lib/format";
 import type { Category } from "@/lib/types";
 
 // Set de ícones sugeridos (pode adicionar mais nome kebab do Lucide livremente).
@@ -17,7 +18,10 @@ const iconePool = [
   "wifi", "phone", "baby", "briefcase", "dog", "wrench",
 ];
 
-type Draft = { id?: string; nome: string; icone: string; cor: string | null; ativa: boolean; ordem: number };
+type Draft = {
+  id?: string; nome: string; icone: string; cor: string | null;
+  ativa: boolean; ordem: number; limiteStr: string;
+};
 
 export default function CategoriasPage() {
   const { user } = useAuth();
@@ -35,25 +39,32 @@ export default function CategoriasPage() {
   useEffect(() => { load(); }, [load]);
 
   function abrirNovo() {
-    setDraft({ nome: "", icone: "more-horizontal", cor: null, ativa: true, ordem: (cats.at(-1)?.ordem ?? 0) + 1 });
+    setDraft({
+      nome: "", icone: "more-horizontal", cor: null, ativa: true,
+      ordem: (cats.at(-1)?.ordem ?? 0) + 1, limiteStr: "",
+    });
   }
   function abrirEdit(c: Category) {
-    setDraft({ id: c.id, nome: c.nome, icone: c.icone, cor: c.cor, ativa: c.ativa, ordem: c.ordem });
+    setDraft({
+      id: c.id, nome: c.nome, icone: c.icone, cor: c.cor, ativa: c.ativa,
+      ordem: c.ordem, limiteStr: c.limite_mensal ? String(c.limite_mensal) : "",
+    });
   }
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
     if (!user || !draft) return;
     if (!draft.nome.trim()) return;
+    const limite = draft.limiteStr ? parseBRL(draft.limiteStr) : 0;
+    const patch = {
+      nome: draft.nome.trim(), icone: draft.icone, cor: draft.cor,
+      ativa: draft.ativa, ordem: draft.ordem,
+      limite_mensal: limite > 0 ? limite : null,
+    };
     if (draft.id) {
-      await supabase.from("categories")
-        .update({ nome: draft.nome.trim(), icone: draft.icone, cor: draft.cor, ativa: draft.ativa, ordem: draft.ordem })
-        .eq("id", draft.id);
+      await supabase.from("categories").update(patch).eq("id", draft.id);
     } else {
-      await supabase.from("categories").insert({
-        user_id: user.id,
-        nome: draft.nome.trim(), icone: draft.icone, cor: draft.cor, ativa: draft.ativa, ordem: draft.ordem,
-      });
+      await supabase.from("categories").insert({ user_id: user.id, ...patch });
     }
     setDraft(null);
     load();
@@ -131,6 +142,9 @@ export default function CategoriasPage() {
             </div>
             <Input name="cor" label="Cor (hex, opcional)" placeholder="#F1F2F5"
               value={draft.cor ?? ""} onChange={(e) => setDraft({ ...draft, cor: e.target.value || null })} />
+            <Input name="limite" label="Limite mensal (R$, opcional)" placeholder="0,00" inputMode="decimal"
+              value={draft.limiteStr} onChange={(e) => setDraft({ ...draft, limiteStr: e.target.value })}
+              hint="Deixe vazio para não ter limite. Você recebe alerta ao atingir 85%." />
             <Input name="ordem" label="Ordem" type="number" value={String(draft.ordem)}
               onChange={(e) => setDraft({ ...draft, ordem: Number(e.target.value) || 0 })} />
             <Button type="submit" size="lg" className="w-full">Salvar</Button>

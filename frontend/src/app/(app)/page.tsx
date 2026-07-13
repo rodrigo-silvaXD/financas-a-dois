@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  ArrowDownRight, ArrowUpRight, BarChart3, PiggyBank, RefreshCw, Target, Wallet,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, PiggyBank, RefreshCw, Sparkles, Target, Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
 import { formatBRL, formatDateShort } from "@/lib/format";
 import { Badge, Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
+import { cn } from "@/lib/cn";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
 import { listGoals, type Goal } from "@/lib/goals";
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [cats, setCats] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [parcelas, setParcelas] = useState<ParcelamentoAtivo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,18 +44,20 @@ export default function Dashboard() {
     const monthStart = new Date(); monthStart.setDate(1);
     const iso = monthStart.toISOString().slice(0, 10);
 
-    const [{ data: prof }, { data: tx }, gs, ps] = await Promise.all([
+    const [{ data: prof }, { data: tx }, { data: c }, gs, ps] = await Promise.all([
       supabase.from("profiles").select("id, nome, avatar_url").eq("id", user.id).single(),
       supabase.from("transactions")
         .select("*, categoria:categories(nome, icone, cor)")
         .gte("data", iso)
         .order("data", { ascending: false })
         .order("created_at", { ascending: false }),
+      supabase.from("categories").select("*").eq("user_id", user.id).eq("ativa", true),
       listGoals(user.id),
       listParcelamentosAtivos(user.id),
     ]);
     setProfile(prof as Profile | null);
     setRows((tx ?? []) as Row[]);
+    setCats((c ?? []) as Category[]);
     setGoals(gs);
     setParcelas(ps);
     setLoading(false);
@@ -70,12 +74,31 @@ export default function Dashboard() {
   const ultimos = rows.slice(0, 5);
   const topGoals = goals.slice(0, 3);
 
+  // Alerta de limite por categoria (>= 85% do limite_mensal)
+  const gastoPorCat = new Map<string, number>();
+  for (const r of rows.filter((x) => x.tipo === "gasto" && x.categoria_id)) {
+    gastoPorCat.set(r.categoria_id!, (gastoPorCat.get(r.categoria_id!) ?? 0) + Number(r.valor));
+  }
+  const alertasLimite = cats
+    .filter((c) => c.limite_mensal && c.limite_mensal > 0)
+    .map((c) => {
+      const gasto = gastoPorCat.get(c.id) ?? 0;
+      const pct = (gasto / Number(c.limite_mensal)) * 100;
+      return { c, gasto, pct };
+    })
+    .filter((a) => a.pct >= 85)
+    .sort((a, b) => b.pct - a.pct);
+
   return (
     <main>
       <TopBar
         title=""
         rightSlot={
           <>
+            <Link href="/estatisticas" aria-label="Estatísticas"
+              className="rounded-md p-1.5 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
+              <Sparkles size={20} />
+            </Link>
             <Link href="/graficos" aria-label="Gráficos"
               className="rounded-md p-1.5 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
               <BarChart3 size={20} />
@@ -111,6 +134,29 @@ export default function Dashboard() {
           <MiniCard icon={<ArrowDownRight size={18} />} tone="danger" label="Saiu"    valor={gastos} />
           <MiniCard icon={<PiggyBank size={18} />}    tone="brand"   label="Economia" valor={Math.max(0, saldo)} />
         </div>
+
+        {/* Alertas de limite por categoria */}
+        {alertasLimite.length > 0 && (
+          <div className="space-y-2">
+            {alertasLimite.map(({ c, gasto, pct }) => {
+              const tone = pct >= 100 ? "danger" : "warning";
+              return (
+                <Card key={c.id} className={cn(
+                  "flex items-start gap-3 p-3",
+                  tone === "danger" ? "border-danger/40" : "border-warning/40",
+                )}>
+                  <AlertTriangle size={18} className={cn("mt-0.5", tone === "danger" ? "text-danger" : "text-warning")} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body text-ink">
+                      Você já usou <span className="font-semibold">{Math.round(pct)}%</span> do limite de <span className="font-semibold">{formatBRL(Number(c.limite_mensal))}</span> em {c.nome}.
+                    </p>
+                    <p className="text-caption text-ink-subtle">Gastou {formatBRL(gasto)} este mês.</p>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
 
         {/* Meus Objetivos */}
         {topGoals.length > 0 && (

@@ -14,6 +14,7 @@ export type Category = {
   cor: string | null;
   ordem: number;
   ativa: boolean;
+  limite_mensal: number | null;    // null = sem limite
 };
 
 export type TransactionRow = {

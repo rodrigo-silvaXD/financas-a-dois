@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronRight, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
-  Tags, Target, Users,
+  ChevronRight, Download, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
+  Tags, Target, Upload, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -165,6 +165,20 @@ export default function PerfilPage() {
               <Card interactive className="flex items-center gap-3 p-4">
                 <Target size={20} className="text-ink-muted" />
                 <span className="flex-1 text-body text-ink">Meus objetivos</span>
+                <ChevronRight size={18} className="text-ink-subtle" />
+              </Card>
+            </Link>
+            <Link href="/importar">
+              <Card interactive className="flex items-center gap-3 p-4">
+                <Upload size={20} className="text-ink-muted" />
+                <span className="flex-1 text-body text-ink">Importar extrato</span>
+                <ChevronRight size={18} className="text-ink-subtle" />
+              </Card>
+            </Link>
+            <Link href="/exportar">
+              <Card interactive className="flex items-center gap-3 p-4">
+                <Download size={20} className="text-ink-muted" />
+                <span className="flex-1 text-body text-ink">Exportar dados</span>
                 <ChevronRight size={18} className="text-ink-subtle" />
               </Card>
             </Link>
