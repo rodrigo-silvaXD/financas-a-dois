@@ -52,7 +52,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         system,
         messages: [{ role: "user", content: texto }],
       });
-      const block = msg.content.find((c) => c.type === "text");
+      const block = msg.content.find((c: any) => c.type === "text");
 const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
@@ -86,7 +86,7 @@ const raw = block?.type === "text" ? block.text : "";
           ],
         }],
       });
-      const block = msg.content.find((c) => c.type === "text");
+      const block = msg.content.find((c: any) => c.type === "text");
 const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
