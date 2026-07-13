@@ -7,6 +7,12 @@ dist
 out
 build
 
+# next-pwa (regerado a cada build; hash muda)
+frontend/public/sw.js
+frontend/public/sw.js.map
+frontend/public/swe-worker-*.js
+frontend/public/workbox-*.js
+
 # env — mantém .env.example rastreado
 .env
 .env.*.local
