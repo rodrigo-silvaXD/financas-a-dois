@@ -5,6 +5,9 @@
   "description": "API do app Finanças a Dois — Fastify + Supabase + Anthropic",
   "type": "module",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=20 <27"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
