@@ -1,10 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { Plus, Target, Trash2 } from "lucide-react";
+import { SkeletonCard } from "@/components/Skeleton";
+import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
-import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
+import { BottomSheet, Button, EmptyState, Input, TopBar } from "@/components/ui";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
 import { formatBRL, formatDateFull, parseBRL } from "@/lib/format";
@@ -44,14 +47,17 @@ export default function ObjetivosPage() {
     <main>
       <TopBar title="Objetivos" showBack rightSlot={
         <button onClick={() => setOpenNew(true)} aria-label="Novo objetivo"
-          className="rounded-md p-1.5 text-brand hover:bg-surface-muted transition-colors duration-base ease-apple">
+          className="rounded-lg p-2 text-brand hover:bg-surface-muted transition-colors duration-base ease-apple">
           <Plus size={22} />
         </button>
       } />
 
-      <section className="mx-auto max-w-md px-4 pt-4 pb-6 space-y-3">
+      <section className="mx-auto max-w-md px-5 pt-4 pb-6 space-y-4">
         {loading ? (
-          <Card className="text-center text-ink-subtle">Carregando…</Card>
+          <div className="space-y-4">
+            <SkeletonCard className="h-32" />
+            <SkeletonCard className="h-32" />
+          </div>
         ) : goals.length === 0 ? (
           <EmptyState
             icon={Target}
@@ -60,7 +66,14 @@ export default function ObjetivosPage() {
             action={<Button onClick={() => setOpenNew(true)}><Plus size={18} /> Criar objetivo</Button>}
           />
         ) : (
-          goals.map((g) => <GoalCard key={g.id} goal={g} onClick={() => openDetail(g)} />)
+          <motion.div className="space-y-4"
+            variants={staggerContainerFast} initial="initial" animate="animate">
+            {goals.map((g) => (
+              <motion.div key={g.id} variants={fadeUpItem}>
+                <GoalCard goal={g} onClick={() => openDetail(g)} />
+              </motion.div>
+            ))}
+          </motion.div>
         )}
       </section>
 

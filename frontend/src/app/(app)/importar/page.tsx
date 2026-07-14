@@ -106,7 +106,7 @@ export default function ImportarPage() {
   return (
     <main>
       <TopBar title="Importar extrato" showBack />
-      <section className="mx-auto max-w-md px-4 pt-4 pb-6 space-y-4">
+      <section className="mx-auto max-w-md px-5 pt-4 pb-8 space-y-5">
         {itens.length === 0 ? (
           <>
             <input ref={fileRef} type="file" accept=".ofx,.qfx,.csv,.pdf" className="hidden"

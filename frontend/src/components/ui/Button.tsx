@@ -3,6 +3,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/cn";
+import { springTap } from "@/lib/motion";
 
 type Variant = "primary" | "secondary" | "ghost";
 type Size = "md" | "lg";
@@ -20,7 +21,7 @@ const variantClass: Record<Variant, string> = {
 };
 
 const sizeClass: Record<Size, string> = {
-  md: "h-11 px-4 text-button",
+  md: "h-11 px-5 text-button",
   lg: "h-14 px-6 text-button",
 };
 
@@ -32,9 +33,9 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
     <motion.button
       ref={ref}
       whileTap={{ scale: 0.97 }}
-      transition={{ duration: 0.18, ease: [0.25, 0.1, 0.25, 1] }}
+      transition={springTap}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-md font-semibold",
+        "inline-flex items-center justify-center gap-2 rounded-lg font-semibold",
         "transition-colors duration-base ease-apple",
         "disabled:opacity-50 disabled:cursor-not-allowed",
         variantClass[variant],
@@ -44,7 +45,12 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       disabled={disabled || loading}
       {...(rest as React.ComponentProps<typeof motion.button>)}
     >
-      {loading ? <span className="animate-pulse">…</span> : children}
+      {loading ? (
+        <span className="inline-flex items-center gap-2">
+          <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+          Salvando…
+        </span>
+      ) : children}
     </motion.button>
   );
 });

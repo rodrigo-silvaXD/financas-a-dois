@@ -75,7 +75,7 @@ export default function GraficosPage() {
   return (
     <main>
       <TopBar title="Gráficos" showBack />
-      <section className="mx-auto max-w-md px-4 pt-2 pb-6 space-y-4">
+      <section className="mx-auto max-w-md px-5 pt-4 pb-8 space-y-5">
         {/* Chips de período */}
         <div className="flex gap-2 pb-2">
           {periodos.map((p) => (

@@ -26,10 +26,12 @@ const config: Config = {
         danger: "rgb(var(--danger) / <alpha-value>)",
       },
       borderRadius: {
-        sm: "8px",
+        sm: "8px",       // chips, badges
         md: "12px",
-        lg: "16px",
-        xl: "24px",
+        lg: "16px",      // inputs, botões
+        xl: "20px",      // cards (rounded-xl e rounded-2xl agora batem em 20)
+        "2xl": "20px",   // alias explícito p/ cards
+        "3xl": "24px",   // bottom sheets, modais
       },
       boxShadow: {
         sm: "0 1px 2px rgba(20, 22, 30, 0.05), 0 1px 3px rgba(20, 22, 30, 0.04)",

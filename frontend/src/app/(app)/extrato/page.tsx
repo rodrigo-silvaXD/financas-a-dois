@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Filter, Search, Trash2, Wallet, X } from "lucide-react";
+import { SkeletonRow } from "@/components/Skeleton";
+import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { Badge, BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
@@ -133,89 +135,99 @@ export default function ExtratoPage() {
         </button>
       } />
 
-      <section className="mx-auto max-w-md px-4 pt-2">
+      <section className="mx-auto max-w-md px-5 pt-4">
         {/* Chips de período */}
         <div className="flex gap-2 overflow-x-auto pb-3">
           {filtros.map((f) => {
             const active = f.id === filtro;
             return (
-              <button key={f.id} onClick={() => setFiltro(f.id)}
-                className={cn("shrink-0 rounded-pill px-3 py-1.5 text-bodysm font-medium transition-colors duration-base ease-apple",
+              <motion.button key={f.id} onClick={() => setFiltro(f.id)}
+                whileTap={{ scale: 0.94 }}
+                animate={active ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                className={cn("shrink-0 rounded-full px-4 py-2 text-bodysm font-medium transition-colors duration-base ease-apple",
                   active ? "bg-brand text-brand-ink" : "bg-surface-muted text-ink-muted hover:text-ink")}>
                 {f.label}
-              </button>
+              </motion.button>
             );
           })}
         </div>
 
         {/* Barra de busca compacta sempre visível */}
-        <div className="relative mb-3">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
+        <div className="relative mb-5">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
           <input value={adv.q} onChange={(e) => setAdv({ ...adv, q: e.target.value })}
             placeholder="Buscar descrição ou categoria…"
-            className="h-11 w-full rounded-md bg-surface-muted pl-9 pr-9 text-body text-ink placeholder:text-ink-subtle outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
+            className="h-12 w-full rounded-lg bg-surface-muted pl-10 pr-10 text-body text-ink placeholder:text-ink-subtle outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
           {adv.q && (
             <button onClick={() => setAdv({ ...adv, q: "" })} aria-label="Limpar"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-ink-subtle hover:text-ink">
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink-subtle hover:text-ink">
               <X size={14} />
             </button>
           )}
         </div>
 
         {loading ? (
-          <Card className="text-center text-ink-subtle">Carregando…</Card>
+          <div className="space-y-3">
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+          </div>
         ) : filtered.length === 0 ? (
           <EmptyState icon={Wallet} title="Nada encontrado" description="Ajuste os filtros ou o período." />
         ) : (
-          <div className="space-y-5 pb-2">
+          <div className="space-y-8 pb-2">
             {grupos.map(([data, itens]) => {
               const totalDia = itens.reduce((s, r) => s + (r.tipo === "entrada" ? 1 : -1) * Number(r.valor), 0);
               return (
                 <div key={data}>
-                  <div className="mb-1 flex items-baseline justify-between">
-                    <h3 className="text-bodysm text-ink-muted">{formatDateFull(data)}</h3>
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <h3 className="text-bodysm text-ink-muted font-medium">{formatDateFull(data)}</h3>
                     <span className={cn("text-caption font-semibold", totalDia >= 0 ? "text-success" : "text-danger")}>
                       {totalDia >= 0 ? "+" : "−"} {formatBRL(Math.abs(totalDia))}
                     </span>
                   </div>
-                  <ul className="space-y-2">
-                    {itens.map((r) => (
-                      <motion.li key={r.id}
-                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}>
-                        <Card className="flex items-center gap-3 p-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-muted text-ink-muted"
-                            style={r.categoria?.cor ? { background: r.categoria.cor } : undefined}>
-                            {r.categoria?.icone
-                              ? <CategoryIcon name={r.categoria.icone} size={18} strokeWidth={1.75} />
-                              : <Wallet size={18} strokeWidth={1.75} />}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-body text-ink">{r.descricao || r.categoria?.nome || "Sem descrição"}</p>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-caption text-ink-subtle">{r.categoria?.nome ?? "—"}</span>
-                              {(r.origem === "ia_texto" || r.origem === "ia_foto") && <Badge tone="brand">✨ IA</Badge>}
-                              {r.parcela_total && r.parcela_atual && (
-                                <Badge tone="neutral">Parcela {r.parcela_atual}/{r.parcela_total}</Badge>
-                              )}
-                              {r.origem === "recorrente" && <Badge tone="neutral">Recorrente</Badge>}
+                  <motion.ul className="space-y-3"
+                    variants={staggerContainerFast} initial="initial" animate="animate">
+                    <AnimatePresence>
+                      {itens.map((r) => (
+                        <motion.li key={r.id} variants={fadeUpItem} layout
+                          exit={{ opacity: 0, x: -40, transition: { duration: 0.22, ease: "linear" } }}>
+                          <Card className="flex items-center gap-3 p-4">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface-muted text-ink-muted shrink-0"
+                              style={r.categoria?.cor ? { background: r.categoria.cor } : undefined}>
+                              {r.categoria?.icone
+                                ? <CategoryIcon name={r.categoria.icone} size={18} strokeWidth={1.75} />
+                                : <Wallet size={18} strokeWidth={1.75} />}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <span className={cn("block text-body font-semibold",
-                              r.tipo === "entrada" ? "text-success" : "text-danger")}>
-                              {r.tipo === "entrada" ? "+" : "−"} {formatBRL(Number(r.valor))}
-                            </span>
-                            <button onClick={() => excluir(r.id)} disabled={deletingId === r.id}
-                              aria-label="Excluir"
-                              className="mt-1 rounded-md p-1 text-ink-subtle hover:text-danger transition-colors duration-base ease-apple disabled:opacity-40">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </Card>
-                      </motion.li>
-                    ))}
-                  </ul>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-body text-ink font-medium">{r.descricao || r.categoria?.nome || "Sem descrição"}</p>
+                              <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                                <span className="text-caption text-ink-subtle">{r.categoria?.nome ?? "—"}</span>
+                                {(r.origem === "ia_texto" || r.origem === "ia_foto") && <Badge tone="brand">✨ IA</Badge>}
+                                {r.parcela_total && r.parcela_atual && (
+                                  <Badge tone="neutral">Parcela {r.parcela_atual}/{r.parcela_total}</Badge>
+                                )}
+                                {r.origem === "recorrente" && <Badge tone="neutral">Recorrente</Badge>}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className={cn("block text-body font-semibold",
+                                r.tipo === "entrada" ? "text-success" : "text-danger")}>
+                                {r.tipo === "entrada" ? "+" : "−"} {formatBRL(Number(r.valor))}
+                              </span>
+                              <button onClick={() => excluir(r.id)} disabled={deletingId === r.id}
+                                aria-label="Excluir"
+                                className="mt-1.5 rounded-lg p-1.5 text-ink-subtle hover:text-danger transition-colors duration-base ease-apple disabled:opacity-40">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </Card>
+                        </motion.li>
+                      ))}
+                    </AnimatePresence>
+                  </motion.ul>
                 </div>
               );
             })}

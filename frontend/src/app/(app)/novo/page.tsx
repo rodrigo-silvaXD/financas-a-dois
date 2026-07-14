@@ -14,7 +14,7 @@ export default function NovoHub() {
   return (
     <main>
       <TopBar title="Adicionar" showBack />
-      <section className="mx-auto max-w-md px-4 pt-4 space-y-3">
+      <section className="mx-auto max-w-md px-5 pt-4 space-y-4">
         <p className="text-body text-ink-muted">Como você quer registrar?</p>
         {opts.map(({ href, icon: Icon, title, desc }) => (
           <Link key={href} href={href}>

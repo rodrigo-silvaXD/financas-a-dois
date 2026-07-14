@@ -46,10 +46,12 @@ export const colors = {
 } as const;
 
 export const radius = {
-  sm: "8px",
-  md: "12px",   // botões
-  lg: "16px",   // cards
-  xl: "24px",   // modais / bottom sheets
+  sm: "8px",       // chips, badges
+  md: "12px",
+  lg: "16px",      // botões, inputs
+  xl: "20px",      // cards
+  "2xl": "20px",   // alias
+  "3xl": "24px",   // bottom sheets, modais
   pill: "9999px",
 } as const;
 

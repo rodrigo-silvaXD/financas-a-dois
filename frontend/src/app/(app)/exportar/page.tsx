@@ -41,7 +41,7 @@ export default function ExportarPage() {
   return (
     <main>
       <TopBar title="Exportar dados" showBack />
-      <section className="mx-auto max-w-md px-4 pt-4 pb-6 space-y-4">
+      <section className="mx-auto max-w-md px-5 pt-4 pb-8 space-y-5">
         <Card>
           <h3 className="text-heading text-ink mb-3">Período</h3>
           <div className="grid grid-cols-2 gap-3">

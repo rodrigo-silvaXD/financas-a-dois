@@ -84,7 +84,7 @@ export default function CategoriasPage() {
         </button>
       } />
 
-      <section className="mx-auto max-w-md px-4 pt-4">
+      <section className="mx-auto max-w-md px-5 pt-4">
         {loading ? (
           <Card className="text-center text-ink-subtle">Carregando…</Card>
         ) : cats.length === 0 ? (

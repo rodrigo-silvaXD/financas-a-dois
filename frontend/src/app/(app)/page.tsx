@@ -14,6 +14,9 @@ import { Badge, Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
+import { AnimatedBRL } from "@/components/AnimatedNumber";
+import { SkeletonCard, SkeletonRow } from "@/components/Skeleton";
+import { staggerContainer, staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { listGoals, type Goal } from "@/lib/goals";
 import { ensureRecurringForCurrentMonth } from "@/lib/recurring";
 import { listParcelamentosAtivos, type ParcelamentoAtivo } from "@/lib/transactions";
@@ -74,7 +77,6 @@ export default function Dashboard() {
   const ultimos = rows.slice(0, 5);
   const topGoals = goals.slice(0, 3);
 
-  // Alerta de limite por categoria (>= 85% do limite_mensal)
   const gastoPorCat = new Map<string, number>();
   for (const r of rows.filter((x) => x.tipo === "gasto" && x.categoria_id)) {
     gastoPorCat.set(r.categoria_id!, (gastoPorCat.get(r.categoria_id!) ?? 0) + Number(r.valor));
@@ -96,134 +98,168 @@ export default function Dashboard() {
         rightSlot={
           <>
             <Link href="/estatisticas" aria-label="Estatísticas"
-              className="rounded-md p-1.5 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
+              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
               <Sparkles size={20} />
             </Link>
             <Link href="/graficos" aria-label="Gráficos"
-              className="rounded-md p-1.5 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
+              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
               <BarChart3 size={20} />
             </Link>
             <button onClick={() => { setRefreshing(true); load(); }} aria-label="Atualizar"
-              className="rounded-md p-1.5 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
+              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
               <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
             </button>
           </>
         }
       />
 
-      <section className="mx-auto max-w-md px-4 pt-2 space-y-4">
+      <section className="mx-auto max-w-md px-5 pt-4 space-y-8">
         <div>
           <p className="text-body text-ink-muted">
             Olá, <span className="text-ink font-semibold">{profile?.nome ?? "…"}</span> 👋
           </p>
         </div>
 
-        <Card className="p-6">
-          <span className="text-caption text-ink-subtle uppercase tracking-wide">Saldo do mês</span>
-          <div className="mt-1">
-            <span className={`text-display ${saldo >= 0 ? "text-ink" : "text-danger"}`}>{formatBRL(saldo)}</span>
-          </div>
-          <div className="mt-4">
-            <ProgressBar value={pctGasto} tone={pctGasto > 80 ? "warning" : "brand"}
-              label={entradas > 0 ? `Você já gastou ${Math.round(pctGasto)}% do que entrou` : "Sem entradas este mês"} />
-          </div>
-        </Card>
-
-        <div className="grid grid-cols-3 gap-3">
-          <MiniCard icon={<ArrowUpRight size={18} />} tone="success" label="Entrou" valor={entradas} />
-          <MiniCard icon={<ArrowDownRight size={18} />} tone="danger" label="Saiu"    valor={gastos} />
-          <MiniCard icon={<PiggyBank size={18} />}    tone="brand"   label="Economia" valor={Math.max(0, saldo)} />
-        </div>
-
-        {/* Alertas de limite por categoria */}
-        {alertasLimite.length > 0 && (
-          <div className="space-y-2">
-            {alertasLimite.map(({ c, gasto, pct }) => {
-              const tone = pct >= 100 ? "danger" : "warning";
-              return (
-                <Card key={c.id} className={cn(
-                  "flex items-start gap-3 p-3",
-                  tone === "danger" ? "border-danger/40" : "border-warning/40",
-                )}>
-                  <AlertTriangle size={18} className={cn("mt-0.5", tone === "danger" ? "text-danger" : "text-warning")} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-body text-ink">
-                      Você já usou <span className="font-semibold">{Math.round(pct)}%</span> do limite de <span className="font-semibold">{formatBRL(Number(c.limite_mensal))}</span> em {c.nome}.
-                    </p>
-                    <p className="text-caption text-ink-subtle">Gastou {formatBRL(gasto)} este mês.</p>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Meus Objetivos */}
-        {topGoals.length > 0 && (
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-heading text-ink">Meus Objetivos</h2>
-              <Link href="/objetivos" className="text-bodysm text-brand font-semibold">Ver todos</Link>
+        {loading ? (
+          <>
+            <SkeletonCard />
+            <div className="grid grid-cols-3 gap-3">
+              <SkeletonCard className="h-24" />
+              <SkeletonCard className="h-24" />
+              <SkeletonCard className="h-24" />
             </div>
-            <div className="space-y-2">
-              {topGoals.map((g) => (
-                <Link key={g.id} href="/objetivos"><GoalCard goal={g} /></Link>
-              ))}
+            <div className="space-y-3">
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
             </div>
-          </div>
-        )}
-        {topGoals.length === 0 && (
-          <Link href="/objetivos">
-            <Card interactive className="flex items-center gap-3 p-4">
-              <div className="rounded-md bg-brand/10 p-2 text-brand"><Target size={18} /></div>
-              <div className="min-w-0 flex-1">
-                <p className="text-body text-ink">Crie um objetivo</p>
-                <p className="text-caption text-ink-subtle">Casa, viagem, casamento…</p>
+          </>
+        ) : (
+          <>
+            {/* Saldo do mês — número animado */}
+            <Card className="p-6">
+              <span className="text-caption text-ink-subtle uppercase tracking-wide font-medium">Saldo do mês</span>
+              <div className="mt-2">
+                <AnimatedBRL value={saldo}
+                  className={cn("block text-display", saldo >= 0 ? "text-ink" : "text-danger")} />
+              </div>
+              <div className="mt-6">
+                <ProgressBar value={pctGasto} tone={pctGasto > 80 ? "warning" : "brand"}
+                  label={entradas > 0 ? `Você já gastou ${Math.round(pctGasto)}% do que entrou` : "Sem entradas este mês"} />
               </div>
             </Card>
-          </Link>
+
+            {/* 3 mini-cards com stagger */}
+            <motion.div className="grid grid-cols-3 gap-3"
+              variants={staggerContainer} initial="initial" animate="animate">
+              <motion.div variants={fadeUpItem}>
+                <MiniCard icon={<ArrowUpRight size={16} />} tone="success" label="Entrou" valor={entradas} />
+              </motion.div>
+              <motion.div variants={fadeUpItem}>
+                <MiniCard icon={<ArrowDownRight size={16} />} tone="danger" label="Saiu" valor={gastos} />
+              </motion.div>
+              <motion.div variants={fadeUpItem}>
+                <MiniCard icon={<PiggyBank size={16} />} tone="brand" label="Economia" valor={Math.max(0, saldo)} />
+              </motion.div>
+            </motion.div>
+
+            {/* Alertas de limite */}
+            {alertasLimite.length > 0 && (
+              <motion.div className="space-y-3" variants={staggerContainerFast} initial="initial" animate="animate">
+                {alertasLimite.map(({ c, gasto, pct }) => {
+                  const tone = pct >= 100 ? "danger" : "warning";
+                  return (
+                    <motion.div key={c.id} variants={fadeUpItem}>
+                      <Card className={cn("flex items-start gap-3 p-4",
+                        tone === "danger" ? "border-danger/40" : "border-warning/40")}>
+                        <AlertTriangle size={18} className={cn("mt-0.5",
+                          tone === "danger" ? "text-danger" : "text-warning")} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-body text-ink leading-relaxed">
+                            Você já usou <span className="font-semibold">{Math.round(pct)}%</span> do limite de <span className="font-semibold">{formatBRL(Number(c.limite_mensal))}</span> em {c.nome}.
+                          </p>
+                          <p className="text-caption text-ink-subtle mt-1">Gastou {formatBRL(gasto)} este mês.</p>
+                        </div>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
+
+            {/* Meus Objetivos */}
+            {topGoals.length > 0 ? (
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-heading text-ink-muted font-semibold">Meus Objetivos</h2>
+                  <Link href="/objetivos" className="text-bodysm text-brand font-semibold">Ver todos</Link>
+                </div>
+                <motion.div className="space-y-3"
+                  variants={staggerContainerFast} initial="initial" animate="animate">
+                  {topGoals.map((g) => (
+                    <motion.div key={g.id} variants={fadeUpItem}>
+                      <Link href="/objetivos"><GoalCard goal={g} /></Link>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </div>
+            ) : (
+              <Link href="/objetivos">
+                <Card interactive className="flex items-center gap-4 p-5">
+                  <div className="rounded-xl bg-brand/10 p-3 text-brand"><Target size={20} /></div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-body text-ink font-medium">Crie um objetivo</p>
+                    <p className="text-caption text-ink-subtle mt-0.5">Casa, viagem, casamento…</p>
+                  </div>
+                </Card>
+              </Link>
+            )}
+
+            {/* Parcelamentos ativos */}
+            {parcelas.length > 0 && (
+              <div>
+                <h2 className="mb-4 text-heading text-ink-muted font-semibold">Parcelamentos ativos</h2>
+                <motion.ul className="space-y-3"
+                  variants={staggerContainerFast} initial="initial" animate="animate">
+                  {parcelas.map((p) => (
+                    <motion.li key={p.parcelamento_id} variants={fadeUpItem}>
+                      <Card className="flex items-center gap-3 p-4">
+                        <div className="rounded-xl bg-surface-muted p-2.5 text-ink-muted"><Wallet size={18} /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-body text-ink">{p.descricao ?? "Compra parcelada"}</p>
+                          <p className="text-caption text-ink-subtle mt-0.5">
+                            {p.parcelas_pagas}/{p.parcela_total} · {formatBRL(p.valor)}/parcela
+                          </p>
+                        </div>
+                      </Card>
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              </div>
+            )}
+
+            {/* Últimos lançamentos */}
+            <div>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-heading text-ink-muted font-semibold">Últimos lançamentos</h2>
+                <Link href="/extrato" className="text-bodysm text-brand font-semibold">Ver todos</Link>
+              </div>
+              {ultimos.length === 0 ? (
+                <EmptyState icon={Wallet} title="Nenhum lançamento este mês"
+                  description="Toque no + pra registrar seu primeiro gasto ou entrada." />
+              ) : (
+                <motion.ul className="space-y-3"
+                  variants={staggerContainerFast} initial="initial" animate="animate">
+                  {ultimos.map((r) => (
+                    <motion.li key={r.id} variants={fadeUpItem}>
+                      <TransactionRowItem row={r} />
+                    </motion.li>
+                  ))}
+                </motion.ul>
+              )}
+            </div>
+          </>
         )}
-
-        {/* Parcelamentos ativos */}
-        {parcelas.length > 0 && (
-          <div>
-            <h2 className="mb-2 text-heading text-ink">Parcelamentos ativos</h2>
-            <ul className="space-y-2">
-              {parcelas.map((p) => (
-                <li key={p.parcelamento_id}>
-                  <Card className="flex items-center gap-3 p-3">
-                    <div className="rounded-md bg-surface-muted p-2 text-ink-muted"><Wallet size={16} /></div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-body text-ink">{p.descricao ?? "Compra parcelada"}</p>
-                      <p className="text-caption text-ink-subtle">
-                        {p.parcelas_pagas}/{p.parcela_total} · {formatBRL(p.valor)}/parcela
-                      </p>
-                    </div>
-                  </Card>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Últimos lançamentos */}
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-heading text-ink">Últimos lançamentos</h2>
-            <Link href="/extrato" className="text-bodysm text-brand font-semibold">Ver todos</Link>
-          </div>
-
-          {loading ? (
-            <Card className="text-center text-ink-subtle">Carregando…</Card>
-          ) : ultimos.length === 0 ? (
-            <EmptyState icon={Wallet} title="Nenhum lançamento este mês"
-              description="Toque no + pra registrar seu primeiro gasto ou entrada." />
-          ) : (
-            <ul className="space-y-2">
-              {ultimos.map((r) => <TransactionRowItem key={r.id} row={r} />)}
-            </ul>
-          )}
-        </div>
       </section>
     </main>
   );
@@ -234,9 +270,10 @@ function MiniCard({ icon, tone, label, valor }: {
 }) {
   const toneClass = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-brand";
   return (
-    <Card className="p-3">
-      <div className={`flex items-center gap-1 text-caption ${toneClass}`}>{icon}<span>{label}</span></div>
-      <p className="mt-1 text-bodysm font-semibold text-ink truncate">{formatBRL(valor)}</p>
+    <Card className="p-4">
+      <div className={`flex items-center gap-1.5 text-caption font-medium ${toneClass}`}>{icon}<span>{label}</span></div>
+      <AnimatedBRL value={valor}
+        className="mt-2 block text-bodysm font-bold text-ink truncate" />
     </Card>
   );
 }
@@ -244,31 +281,28 @@ function MiniCard({ icon, tone, label, valor }: {
 function TransactionRowItem({ row }: { row: Row }) {
   const isEntry = row.tipo === "entrada";
   return (
-    <motion.li initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}>
-      <Card className="flex items-center gap-3 p-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-md"
-          style={{ background: row.categoria?.cor ?? "rgb(var(--surface-muted))", color: "rgb(var(--ink-muted))" }}>
-          {row.categoria?.icone
-            ? <CategoryIcon name={row.categoria.icone} size={18} strokeWidth={1.75} />
-            : <Wallet size={18} strokeWidth={1.75} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-body text-ink">{row.descricao || row.categoria?.nome || "Sem descrição"}</p>
-          <p className="text-caption text-ink-subtle">{formatDateShort(row.data)}</p>
-        </div>
-        <div className="flex flex-col items-end">
-          <span className={`text-body font-semibold ${isEntry ? "text-success" : "text-danger"}`}>
-            {isEntry ? "+" : "−"} {formatBRL(Number(row.valor))}
-          </span>
-          {(row.origem === "ia_texto" || row.origem === "ia_foto") && (
-            <Badge tone="brand" className="mt-0.5">✨ IA</Badge>
-          )}
-          {row.parcela_total && row.parcela_atual && (
-            <Badge tone="neutral" className="mt-0.5">{row.parcela_atual}/{row.parcela_total}</Badge>
-          )}
-        </div>
-      </Card>
-    </motion.li>
+    <Card className="flex items-center gap-3 p-4">
+      <div className="flex h-11 w-11 items-center justify-center rounded-lg"
+        style={{ background: row.categoria?.cor ?? "rgb(var(--surface-muted))", color: "rgb(var(--ink-muted))" }}>
+        {row.categoria?.icone
+          ? <CategoryIcon name={row.categoria.icone} size={18} strokeWidth={1.75} />
+          : <Wallet size={18} strokeWidth={1.75} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-body text-ink font-medium">{row.descricao || row.categoria?.nome || "Sem descrição"}</p>
+        <p className="text-caption text-ink-subtle mt-0.5">{formatDateShort(row.data)}</p>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className={`text-body font-semibold ${isEntry ? "text-success" : "text-danger"}`}>
+          {isEntry ? "+" : "−"} {formatBRL(Number(row.valor))}
+        </span>
+        {(row.origem === "ia_texto" || row.origem === "ia_foto") && (
+          <Badge tone="brand">✨ IA</Badge>
+        )}
+        {row.parcela_total && row.parcela_atual && (
+          <Badge tone="neutral">{row.parcela_atual}/{row.parcela_total}</Badge>
+        )}
+      </div>
+    </Card>
   );
 }

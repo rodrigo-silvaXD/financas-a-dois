@@ -32,7 +32,7 @@ export default function NovoManualPage() {
   return (
     <main>
       <TopBar title="Lançamento manual" showBack />
-      <section className="mx-auto max-w-md px-4 pt-4 pb-6">
+      <section className="mx-auto max-w-md px-5 pt-4 pb-8">
         <TransactionForm categorias={cats} onSubmit={onSubmit} cancelHref="/novo" />
       </section>
     </main>

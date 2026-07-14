@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { Home, List, Plus, Heart, User } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { springTap } from "@/lib/motion";
 
 // Ordem visual: destaque no centro.
 const sideItems = [
@@ -33,21 +34,24 @@ export function BottomNav() {
           </ul>
         </div>
 
-        {/* FAB destacado — flutua sobre a barra */}
+        {/* FAB destacado — 56px, elevado -8px, sombra suave */}
         <Link
           href="/novo"
           aria-label="Adicionar"
-          className={cn(
-            "pointer-events-auto absolute left-1/2 -top-5 -translate-x-1/2",
-            "flex h-14 w-14 items-center justify-center rounded-pill",
-            "bg-brand text-brand-ink shadow-md",
-            "transition-transform duration-base ease-apple",
-            "active:scale-95",
-          )}
+          className="pointer-events-auto absolute left-1/2 -top-2 -translate-x-1/2"
         >
-          <motion.span whileTap={{ scale: 0.9 }} transition={{ duration: 0.18 }}>
+          <motion.div
+            whileTap={{ scale: 0.92 }}
+            transition={springTap}
+            className={cn(
+              "flex h-14 w-14 items-center justify-center rounded-full",
+              "bg-brand text-brand-ink",
+              "shadow-[0_8px_20px_-4px_rgba(76,95,168,0.45)]",
+              "ring-4 ring-canvas",     // "corta" a barra criando o efeito flutuante
+            )}
+          >
             <Plus size={28} strokeWidth={2.4} />
-          </motion.span>
+          </motion.div>
         </Link>
       </div>
     </nav>
@@ -63,7 +67,7 @@ function NavSlot({
         href={href}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-md",
+          "relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg",
           "transition-colors duration-base ease-apple",
           active ? "text-brand" : "text-ink-subtle hover:text-ink",
         )}

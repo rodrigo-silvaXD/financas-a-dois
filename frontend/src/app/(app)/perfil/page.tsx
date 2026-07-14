@@ -65,7 +65,7 @@ export default function PerfilPage() {
   return (
     <main>
       <TopBar title="Perfil" />
-      <section className="mx-auto max-w-md px-4 pt-4 space-y-6">
+      <section className="mx-auto max-w-md px-5 pt-4 space-y-8">
         {/* ── Perfil ── */}
         <SectionCard>
           <div className="flex items-center gap-3">
