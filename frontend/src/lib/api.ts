@@ -19,7 +19,12 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg || `HTTP ${res.status}`);
+    const err = new Error(msg || `HTTP ${res.status}`);
+    // Broadcast: mesmo se o chamador não tratar, ToastProvider mostra.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("app-error", { detail: err.message }));
+    }
+    throw err;
   }
   return res.json() as Promise<T>;
 }

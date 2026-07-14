@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { createContext, useCallback, useContext, useState } from "react";
-import { Check } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type Toast = { id: number; text: string; tone: "success" | "danger" };
@@ -16,12 +16,28 @@ const DURATION = 2000;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
+  const lastErrorRef = useRef<{ text: string; at: number } | null>(null);
 
   const push = useCallback((text: string, tone: Toast["tone"]) => {
     const id = Date.now() + Math.random();
     setItems((p) => [...p, { id, text, tone }]);
     setTimeout(() => setItems((p) => p.filter((t) => t.id !== id)), DURATION);
   }, []);
+
+  // Escuta erros globais de api() — mostra toast mesmo se o chamador não tratou.
+  // Dedup: mesmo texto em <1s vira 1 toast (evita explosão em falha em cascata).
+  useEffect(() => {
+    function onApiError(e: Event) {
+      const detail = (e as CustomEvent<string>).detail || "Falha na conexão";
+      const now = Date.now();
+      const last = lastErrorRef.current;
+      if (last && last.text === detail && now - last.at < 1000) return;
+      lastErrorRef.current = { text: detail, at: now };
+      push(detail, "danger");
+    }
+    window.addEventListener("app-error", onApiError);
+    return () => window.removeEventListener("app-error", onApiError);
+  }, [push]);
 
   return (
     <Ctx.Provider value={{
@@ -49,6 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               )}
             >
               {t.tone === "success" && <Check size={16} strokeWidth={2.4} />}
+              {t.tone === "danger"  && <AlertTriangle size={16} strokeWidth={2.4} />}
               <span className="text-bodysm font-medium">{t.text}</span>
             </motion.div>
           ))}

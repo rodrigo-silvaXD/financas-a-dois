@@ -43,11 +43,16 @@ export async function deleteRecurring(id: string) {
  * Lança as recorrentes ativas do usuário que ainda não foram lançadas neste mês
  * e cujo dia_do_mes já passou (ou é hoje). Chamado no load do Dashboard.
  * ponytail: sem cron. Client-side, idempotente por (user_id, recorrente_id, mês).
+ * Cache em sessionStorage: dentro da mesma sessão, roda 1x por mês/user.
  */
 export async function ensureRecurringForCurrentMonth(userId: string): Promise<number> {
   const hoje = new Date();
   const dia = hoje.getDate();
   const mesInicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+
+  // Cache: nada roda se já checamos este user + mês nesta sessão.
+  const cacheKey = `recurring-checked:${userId}:${mesInicio}`;
+  if (typeof window !== "undefined" && sessionStorage.getItem(cacheKey)) return 0;
 
   const [{ data: recs }, { data: jaFeitas }] = await Promise.all([
     supabase.from("recurring_expenses").select("*")
@@ -58,7 +63,10 @@ export async function ensureRecurringForCurrentMonth(userId: string): Promise<nu
 
   const done = new Set<string>((jaFeitas ?? []).map((r) => r.recorrente_id as string));
   const toInsert = (recs ?? []).filter((r) => !done.has(r.id));
-  if (toInsert.length === 0) return 0;
+  if (toInsert.length === 0) {
+    if (typeof window !== "undefined") sessionStorage.setItem(cacheKey, "1");
+    return 0;
+  }
 
   const dataLanc = todayISO();
   const rows = toInsert.map((r) => ({
@@ -74,5 +82,6 @@ export async function ensureRecurringForCurrentMonth(userId: string): Promise<nu
   }));
   const { error } = await supabase.from("transactions").insert(rows);
   if (error) throw new Error(error.message);
+  if (typeof window !== "undefined") sessionStorage.setItem(cacheKey, "1");
   return rows.length;
 }
