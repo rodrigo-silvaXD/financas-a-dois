@@ -138,12 +138,12 @@ export default function ImportarPage() {
                 className="text-bodysm text-brand font-semibold">Refazer</button>
             </div>
 
-            <ul className="space-y-2">
+            <ul className="space-y-3">
               {itens.map((it, i) => (
                 <motion.li key={i}
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}>
-                  <Card className={cn("flex items-center gap-3 p-3", it.jaImportado && "opacity-50")}>
+                  <Card className={cn("flex items-center gap-3 p-4", it.jaImportado && "opacity-50")}>
                     <input type="checkbox" checked={it.selecionado} disabled={it.jaImportado}
                       onChange={(e) => setItens((prev) => prev.map((x, k) => k === i ? { ...x, selecionado: e.target.checked } : x))}
                       className="h-4 w-4 shrink-0" />
@@ -170,7 +170,7 @@ export default function ImportarPage() {
               ))}
             </ul>
 
-            <Button size="lg" className="w-full" onClick={importar} loading={saving} disabled={selCount === 0}>
+            <Button size="lg" className="w-full" onClick={importar} loading={saving} loadingLabel="Importando…" disabled={selCount === 0}>
               <Upload size={18} /> Importar {selCount > 0 ? `(${selCount})` : ""}
             </Button>
           </>

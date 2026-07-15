@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { env } from "../../config/env.js";
+import { webauthnRoutes } from "./webauthn.js";
 
 // ponytail: frontend usa Supabase JS direto (login/persist/refresh nativos).
 // Estas rotas são bindings finos ao mesmo SDK. Use se algum consumer não-web
@@ -19,6 +20,8 @@ const loginSchema = z.object({
 });
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
+  await app.register(webauthnRoutes);
+
   app.post("/register", async (req, reply) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) return reply.badRequest(parsed.error.message);

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { BiometricGate } from "@/components/BiometricGate";
 
 /**
  * Redireciona pra /login se não houver sessão ativa.
@@ -19,10 +20,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading || !session) {
     return (
-      <div className="min-h-dvh flex items-center justify-center text-ink-subtle">
-        Carregando…
+      <div className="min-h-dvh flex items-center justify-center">
+        <span
+          aria-label="Carregando"
+          className="h-8 w-8 rounded-full border-2 border-hairline border-t-brand animate-spin"
+        />
       </div>
     );
   }
-  return <>{children}</>;
+  return <BiometricGate>{children}</BiometricGate>;
 }

@@ -10,12 +10,14 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
 import { formatBRL, formatDateShort } from "@/lib/format";
-import { Badge, Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
+import { Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import { CategoryAvatar } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
+import { DrillDownSheet, type DrillType } from "@/components/DrillDownSheet";
 import { AnimatedBRL } from "@/components/AnimatedNumber";
-import { SkeletonCard, SkeletonRow } from "@/components/Skeleton";
+import { OriginBadge } from "@/components/OriginBadge";
+import { SkeletonCard, SkeletonRow, useMinLoading } from "@/components/Skeleton";
 import { staggerContainer, staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { listGoals, type Goal } from "@/lib/goals";
 import { ensureRecurringForCurrentMonth } from "@/lib/recurring";
@@ -34,6 +36,8 @@ export default function Dashboard() {
   const [parcelas, setParcelas] = useState<ParcelamentoAtivo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [drill, setDrill] = useState<DrillType | null>(null);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -120,10 +124,10 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {loading ? (
+        {showSkeleton ? (
           <>
             <SkeletonCard />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-4">
               <SkeletonCard className="h-24" />
               <SkeletonCard className="h-24" />
               <SkeletonCard className="h-24" />
@@ -149,17 +153,20 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* 3 mini-cards com stagger */}
-            <motion.div className="grid grid-cols-3 gap-3"
+            {/* 3 mini-cards com stagger — clicáveis pra drill-down */}
+            <motion.div className="grid grid-cols-3 gap-4"
               variants={staggerContainer} initial="initial" animate="animate">
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<ArrowUpRight size={16} />} tone="success" label="Entrou" valor={entradas} />
+                <MiniCard icon={<ArrowUpRight size={16} />} tone="success" label="Entrou" valor={entradas}
+                  onClick={() => setDrill("entrada")} />
               </motion.div>
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<ArrowDownRight size={16} />} tone="danger" label="Saiu" valor={gastos} />
+                <MiniCard icon={<ArrowDownRight size={16} />} tone="danger" label="Saiu" valor={gastos}
+                  onClick={() => setDrill("gasto")} />
               </motion.div>
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<PiggyBank size={16} />} tone="brand" label="Economia" valor={Math.max(0, saldo)} />
+                <MiniCard icon={<PiggyBank size={16} />} tone="brand" label="Economia" valor={Math.max(0, saldo)}
+                  onClick={() => setDrill("economia")} />
               </motion.div>
             </motion.div>
 
@@ -261,17 +268,31 @@ export default function Dashboard() {
           </>
         )}
       </section>
+
+      {user && (
+        <DrillDownSheet
+          open={drill !== null}
+          onClose={() => setDrill(null)}
+          type={drill ?? "gasto"}
+          userId={user.id}
+        />
+      )}
     </main>
   );
 }
 
-function MiniCard({ icon, tone, label, valor }: {
-  icon: React.ReactNode; tone: "success" | "danger" | "brand"; label: string; valor: number;
+function MiniCard({ icon, tone, label, valor, onClick }: {
+  icon: React.ReactNode; tone: "success" | "danger" | "brand"; label: string; valor: number; onClick?: () => void;
 }) {
-  const toneClass = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-brand";
+  // Fundos tintados bem sutis — verde/vermelho/azul distinguíveis nos 2 temas.
+  const tones = {
+    success: { text: "text-success", card: "bg-success/[0.07] border-success/20" },
+    danger:  { text: "text-danger",  card: "bg-danger/[0.07] border-danger/20" },
+    brand:   { text: "text-brand",   card: "bg-brand/[0.07] border-brand/20" },
+  }[tone];
   return (
-    <Card className="p-4">
-      <div className={`flex items-center gap-1.5 text-caption font-medium ${toneClass}`}>{icon}<span>{label}</span></div>
+    <Card interactive={!!onClick} onClick={onClick} className={cn("p-4", tones.card)}>
+      <div className={cn("flex items-center gap-1.5 text-caption font-medium", tones.text)}>{icon}<span>{label}</span></div>
       <AnimatedBRL value={valor}
         className="mt-2 block text-bodysm font-bold text-ink truncate" />
     </Card>
@@ -282,12 +303,7 @@ function TransactionRowItem({ row }: { row: Row }) {
   const isEntry = row.tipo === "entrada";
   return (
     <Card className="flex items-center gap-3 p-4">
-      <div className="flex h-11 w-11 items-center justify-center rounded-lg"
-        style={{ background: row.categoria?.cor ?? "rgb(var(--surface-muted))", color: "rgb(var(--ink-muted))" }}>
-        {row.categoria?.icone
-          ? <CategoryIcon name={row.categoria.icone} size={18} strokeWidth={1.75} />
-          : <Wallet size={18} strokeWidth={1.75} />}
-      </div>
+      <CategoryAvatar categoria={row.categoria} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-body text-ink font-medium">{row.descricao || row.categoria?.nome || "Sem descrição"}</p>
         <p className="text-caption text-ink-subtle mt-0.5">{formatDateShort(row.data)}</p>
@@ -296,11 +312,10 @@ function TransactionRowItem({ row }: { row: Row }) {
         <span className={`text-body font-semibold ${isEntry ? "text-success" : "text-danger"}`}>
           {isEntry ? "+" : "−"} {formatBRL(Number(row.valor))}
         </span>
-        {(row.origem === "ia_texto" || row.origem === "ia_foto") && (
-          <Badge tone="brand">✨ IA</Badge>
-        )}
-        {row.parcela_total && row.parcela_atual && (
-          <Badge tone="neutral">{row.parcela_atual}/{row.parcela_total}</Badge>
+        {(row.origem !== "manual" || (row.parcela_total && row.parcela_atual)) && (
+          <OriginBadge origem={row.origem}
+            parcela={row.parcela_total && row.parcela_atual
+              ? { atual: row.parcela_atual, total: row.parcela_total } : null} />
         )}
       </div>
     </Card>

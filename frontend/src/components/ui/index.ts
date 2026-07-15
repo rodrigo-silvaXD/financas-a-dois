@@ -1,5 +1,6 @@
 export { Button } from "./Button";
 export { Input } from "./Input";
+export { CurrencyInput } from "./CurrencyInput";
 export { Card } from "./Card";
 export { BottomSheet } from "./BottomSheet";
 export { Badge } from "./Badge";

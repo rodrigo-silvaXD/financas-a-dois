@@ -18,8 +18,8 @@ export function TopBar({ title, showBack, rightSlot, className }: Props) {
   return (
     <header
       className={cn(
-        "sticky top-0 z-20 safe-top",
-        "bg-canvas/80 backdrop-blur-md border-b border-hairline",
+        "sticky top-0 z-40 safe-top",
+        "bg-canvas/85 backdrop-blur-md border-b border-hairline",
         className,
       )}
     >

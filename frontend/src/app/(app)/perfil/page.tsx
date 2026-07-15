@@ -146,7 +146,7 @@ export default function PerfilPage() {
         {/* ── Financeiro ── */}
         <div>
           <SectionTitle>Financeiro</SectionTitle>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Link href="/perfil/categorias">
               <Card interactive className="flex items-center gap-3 p-4">
                 <Tags size={20} className="text-ink-muted" />

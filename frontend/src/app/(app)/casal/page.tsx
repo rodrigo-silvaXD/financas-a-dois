@@ -6,11 +6,11 @@ import { motion } from "framer-motion";
 import { ArrowDownRight, ArrowUpRight, Heart, Mail } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
-import { Badge, BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
+import { Badge, BottomSheet, Button, Card, CurrencyInput, EmptyState, Input, TopBar } from "@/components/ui";
 import { AnimatedBRL } from "@/components/AnimatedNumber";
-import { SkeletonCard, SkeletonRow } from "@/components/Skeleton";
+import { SkeletonCard, SkeletonRow, useMinLoading } from "@/components/Skeleton";
 import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
-import { formatBRL, formatDateFull, parseBRL, todayISO } from "@/lib/format";
+import { formatBRL, formatDateFull, todayISO } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import {
   addCoupleEntry, getMyFamilyContext, listCoupleEntries,
@@ -24,6 +24,7 @@ export default function CasalPage() {
   const [entries, setEntries] = useState<CoupleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [sheet, setSheet] = useState<"deposito" | "retirada" | null>(null);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -35,7 +36,7 @@ export default function CasalPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) {
+  if (showSkeleton) {
     return (
       <main>
         <TopBar title="Conta do casal" />
@@ -169,7 +170,7 @@ function EntryForm({ tipo, coupleAccountId, userId, onDone }: {
   tipo: "deposito" | "retirada"; coupleAccountId: string; userId: string;
   onDone: () => void | Promise<void>;
 }) {
-  const [valorStr, setValorStr] = useState("");
+  const [valor, setValor] = useState(0);
   const [descricao, setDescricao] = useState("");
   const [data, setData] = useState(todayISO());
   const [saving, setSaving] = useState(false);
@@ -177,7 +178,6 @@ function EntryForm({ tipo, coupleAccountId, userId, onDone }: {
 
   async function salvar(e: FormEvent) {
     e.preventDefault();
-    const valor = parseBRL(valorStr);
     if (valor <= 0) { setErro("Valor inválido."); return; }
     setSaving(true); setErro(null);
     try {
@@ -194,16 +194,7 @@ function EntryForm({ tipo, coupleAccountId, userId, onDone }: {
 
   return (
     <form onSubmit={salvar} className="space-y-5">
-      <label className="block">
-        <span className="text-bodysm text-ink-muted font-medium">Valor (R$)</span>
-        <input
-          inputMode="decimal"
-          value={valorStr}
-          onChange={(e) => setValorStr(e.target.value)}
-          placeholder="0,00"
-          className="mt-2 h-16 w-full rounded-lg bg-surface-muted px-4 text-display text-ink text-right outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple"
-        />
-      </label>
+      <CurrencyInput label="Valor" value={valor} onChange={setValor} large />
       <Input name="descricao" label="Descrição (opcional)" placeholder="Ex.: mesada do mês"
         value={descricao} onChange={(e) => setDescricao(e.target.value)} />
       <Input name="data" label="Data" type="date"

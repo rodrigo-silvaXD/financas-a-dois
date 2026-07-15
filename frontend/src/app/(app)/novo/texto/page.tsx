@@ -15,14 +15,18 @@ import type { Category } from "@/lib/types";
 
 // Tipos mínimos da Web Speech API — não existem no lib.dom por default.
 type SpeechRecognitionResult = { results: ArrayLike<ArrayLike<{ transcript: string }>> };
+type SpeechRecognitionErrorEvent = { error: string; message?: string };
 type SpeechRecognition = {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
   onresult: (e: SpeechRecognitionResult) => void;
   onend: () => void;
+  onerror: (e: SpeechRecognitionErrorEvent) => void;
+  onnomatch: () => void;
   start(): void;
   stop(): void;
+  abort(): void;
 };
 type SpeechRecognitionCtor = new () => SpeechRecognition;
 type WindowWithSpeech = Window & {
@@ -68,18 +72,52 @@ export default function NovoTextoPage() {
     typeof window !== "undefined" &&
     ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
 
+  // Encerra sem estado inconsistente. Chamado em unmount, erro ou stop pelo user.
+  function cleanupRec() {
+    try { recRef.current?.abort(); } catch { /* já parado */ }
+    recRef.current = null;
+    setRecording(false);
+  }
+
+  useEffect(() => cleanupRec, []);   // unmount
+
   function toggleRec() {
     if (!speechSupported) return;
-    if (recording) { recRef.current?.stop(); return; }
+    // Se já gravando, PARA sem iniciar nada novo. Fluxo de "clicar de novo pra parar".
+    if (recording) { try { recRef.current?.stop(); } catch { cleanupRec(); } return; }
+
     const w = window as WindowWithSpeech;
     const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
     if (!SR) return;
-    const rec = new SR();
+
+    let rec: SpeechRecognition;
+    try { rec = new SR(); } catch { toast.error("Não foi possível iniciar o microfone"); return; }
+
     rec.lang = "pt-BR"; rec.interimResults = false; rec.maxAlternatives = 1;
-    rec.onresult = (e: SpeechRecognitionResult) =>
-      setTexto((prev) => (prev ? prev + " " : "") + e.results[0][0].transcript);
-    rec.onend = () => setRecording(false);
-    rec.start(); recRef.current = rec; setRecording(true);
+
+    rec.onresult = (e) => {
+      const t = e.results[0]?.[0]?.transcript ?? "";
+      if (t) setTexto((prev) => (prev ? prev + " " : "") + t);
+    };
+    rec.onnomatch = () => toast.error("Não entendi. Tente de novo.");
+    rec.onerror = (e) => {
+      const kind = e.error || "";
+      if (kind === "not-allowed" || kind === "service-not-allowed")
+        toast.error("Permissão do microfone negada");
+      else if (kind === "no-speech") { /* silêncio — só encerra */ }
+      else if (kind !== "aborted") toast.error("Erro no microfone");
+      cleanupRec();
+    };
+    rec.onend = () => cleanupRec();
+
+    try {
+      rec.start();
+      recRef.current = rec;
+      setRecording(true);
+    } catch {
+      toast.error("Microfone já ativo. Aguarde.");
+      cleanupRec();
+    }
   }
 
   async function analisar() {
@@ -135,6 +173,7 @@ export default function NovoTextoPage() {
     if (!user) return;
     await saveTransaction(user.id, { ...draft, origem: "ia_texto" });
     toast.success("Salvo");
+    await new Promise((r) => setTimeout(r, 100));
     router.replace("/");
   }
 
@@ -158,7 +197,7 @@ export default function NovoTextoPage() {
                   <Mic size={18} /> {recording ? "Parar" : "Falar"}
                 </Button>
               )}
-              <Button type="button" size="lg" className="flex-1" loading={loading}
+              <Button type="button" size="lg" className="flex-1" loading={loading} loadingLabel="Analisando…"
                 onClick={analisar} disabled={!texto.trim()}>
                 <Send size={16} /> Analisar
               </Button>

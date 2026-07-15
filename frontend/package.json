@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^13.3.0",
     "@supabase/supabase-js": "^2.110.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.42.2",
@@ -20,7 +21,7 @@
     "react-dom": "^18",
     "recharts": "^3.9.2",
     "tailwind-merge": "^3.6.0",
-    "xlsx": "^0.18.5"
+    "xlsx-js-style": "^1.2.0"
   },
   "devDependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

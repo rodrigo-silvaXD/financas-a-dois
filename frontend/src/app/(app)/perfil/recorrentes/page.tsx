@@ -1,19 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { Pencil, Plus, Repeat, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
-import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
-import { CategoryIcon } from "@/components/CategoryIcon";
-import { formatBRL, parseBRL, formatBRNumber } from "@/lib/format";
+import { BottomSheet, Button, Card, CurrencyInput, EmptyState, Input, TopBar } from "@/components/ui";
+import { CategoryAvatar } from "@/components/CategoryIcon";
+import { SkeletonRow, useMinLoading } from "@/components/Skeleton";
+import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
+import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { deleteRecurring, listRecurring, saveRecurring, type Recurring } from "@/lib/recurring";
 import type { Category } from "@/lib/types";
 
 type Draft = {
-  id?: string; nome: string; valorStr: string; categoria_id: string | null;
+  id?: string; nome: string; valor: number; categoria_id: string | null;
   dia_do_mes: number; ativo: boolean;
 };
 
@@ -23,7 +26,9 @@ export default function RecorrentesPage() {
   const [items, setItems] = useState<Recurring[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -37,11 +42,11 @@ export default function RecorrentesPage() {
   useEffect(() => { load(); }, [load]);
 
   function abrirNovo() {
-    setDraft({ nome: "", valorStr: "", categoria_id: null, dia_do_mes: 1, ativo: true });
+    setDraft({ nome: "", valor: 0, categoria_id: null, dia_do_mes: 1, ativo: true });
   }
   function abrirEdit(r: Recurring) {
     setDraft({
-      id: r.id, nome: r.nome, valorStr: formatBRNumber(Number(r.valor)),
+      id: r.id, nome: r.nome, valor: Number(r.valor),
       categoria_id: r.categoria_id, dia_do_mes: r.dia_do_mes, ativo: r.ativo,
     });
   }
@@ -49,15 +54,17 @@ export default function RecorrentesPage() {
   async function salvar(e: FormEvent) {
     e.preventDefault();
     if (!user || !draft) return;
-    const valor = parseBRL(draft.valorStr);
-    if (!draft.nome.trim() || valor <= 0) return;
-    await saveRecurring(user.id, {
-      id: draft.id, nome: draft.nome.trim(), valor,
-      categoria_id: draft.categoria_id, dia_do_mes: draft.dia_do_mes, ativo: draft.ativo,
-    });
-    setDraft(null);
-    await load();
-    toast.success("Recorrente salvo");
+    if (!draft.nome.trim() || draft.valor <= 0) return;
+    setSaving(true);
+    try {
+      await saveRecurring(user.id, {
+        id: draft.id, nome: draft.nome.trim(), valor: draft.valor,
+        categoria_id: draft.categoria_id, dia_do_mes: draft.dia_do_mes, ativo: draft.ativo,
+      });
+      setDraft(null);
+      await load();
+      toast.success("Recorrente salvo");
+    } finally { setSaving(false); }
   }
 
   async function excluir(id: string) {
@@ -82,8 +89,10 @@ export default function RecorrentesPage() {
       } />
 
       <section className="mx-auto max-w-md px-5 pt-4">
-        {loading ? (
-          <Card className="text-center text-ink-subtle">Carregando…</Card>
+        {showSkeleton ? (
+          <div className="space-y-3">
+            <SkeletonRow /><SkeletonRow /><SkeletonRow />
+          </div>
         ) : items.length === 0 ? (
           <EmptyState
             icon={Repeat}
@@ -92,15 +101,14 @@ export default function RecorrentesPage() {
             action={<Button onClick={abrirNovo}><Plus size={18} /> Novo recorrente</Button>}
           />
         ) : (
-          <ul className="space-y-2">
+          <motion.ul className="space-y-3"
+            variants={staggerContainerFast} initial="initial" animate="animate">
             {items.map((r) => {
               const cat = cats.find((c) => c.id === r.categoria_id);
               return (
-                <li key={r.id}>
-                  <Card className={cn("flex items-center gap-3 p-3", !r.ativo && "opacity-50")}>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-muted text-ink-muted">
-                      {cat ? <CategoryIcon name={cat.icone} size={18} strokeWidth={1.75} /> : <Repeat size={18} />}
-                    </div>
+                <motion.li key={r.id} variants={fadeUpItem}>
+                  <Card className={cn("flex items-center gap-3 p-4", !r.ativo && "opacity-50")}>
+                    <CategoryAvatar categoria={cat ?? null} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-body text-ink">{r.nome}</p>
                       <p className="text-caption text-ink-subtle">Dia {r.dia_do_mes} · {formatBRL(Number(r.valor))}</p>
@@ -117,22 +125,18 @@ export default function RecorrentesPage() {
                       <Trash2 size={16} />
                     </button>
                   </Card>
-                </li>
+                </motion.li>
               );
             })}
-          </ul>
+          </motion.ul>
         )}
       </section>
 
       <BottomSheet open={!!draft} onClose={() => setDraft(null)} title={draft?.id ? "Editar recorrente" : "Novo recorrente"}>
         {draft && (
-          <form onSubmit={salvar} className="space-y-3">
+          <form onSubmit={salvar} className="space-y-4">
             <Input name="nome" label="Nome" value={draft.nome} onChange={(e) => setDraft({ ...draft, nome: e.target.value })} required />
-            <label className="block">
-              <span className="text-bodysm text-ink-muted font-medium">Valor (R$)</span>
-              <input inputMode="decimal" value={draft.valorStr} onChange={(e) => setDraft({ ...draft, valorStr: e.target.value })} placeholder="0,00"
-                className="mt-1.5 h-12 w-full rounded-md bg-surface-muted px-4 text-body text-ink text-right outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
-            </label>
+            <CurrencyInput label="Valor" value={draft.valor} onChange={(v) => setDraft({ ...draft, valor: v })} />
             <label className="block">
               <span className="text-bodysm text-ink-muted font-medium">Categoria</span>
               <select value={draft.categoria_id ?? ""} onChange={(e) => setDraft({ ...draft, categoria_id: e.target.value || null })}
@@ -147,7 +151,7 @@ export default function RecorrentesPage() {
               <input type="checkbox" checked={draft.ativo} onChange={(e) => setDraft({ ...draft, ativo: e.target.checked })} />
               <span className="text-bodysm text-ink">Ativo</span>
             </label>
-            <Button type="submit" size="lg" className="w-full">Salvar</Button>
+            <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
           </form>
         )}
       </BottomSheet>

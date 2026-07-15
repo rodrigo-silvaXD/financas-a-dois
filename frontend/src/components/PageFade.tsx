@@ -4,10 +4,9 @@ import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 
 /**
- * Transição entre páginas:
- *  entrada: y 20 → 0 + opacity 0 → 1 · 280ms · ease-out
- *  saída:   opacity 0 · 200ms · linear
- * Chave por pathname faz AnimatePresence detectar troca de rota.
+ * Transição entre páginas — fade puro.
+ * ponytail: sem `y` transform. Transform em ancestral quebra `position: sticky`
+ * dos TopBars — troca leve por sticky-que-funciona.
  */
 export function PageFade({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -15,15 +14,9 @@ export function PageFade({ children }: { children: React.ReactNode }) {
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={pathname}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{
-          opacity: 1, y: 0,
-          transition: { duration: 0.28, ease: [0.16, 1, 0.3, 1] },
-        }}
-        exit={{
-          opacity: 0,
-          transition: { duration: 0.20, ease: "linear" },
-        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 0.24, ease: [0.16, 1, 0.3, 1] } }}
+        exit={{ opacity: 0, transition: { duration: 0.16, ease: "linear" } }}
       >
         {children}
       </motion.div>

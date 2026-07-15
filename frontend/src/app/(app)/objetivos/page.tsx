@@ -3,14 +3,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Plus, Target, Trash2 } from "lucide-react";
-import { SkeletonCard } from "@/components/Skeleton";
+import { SkeletonCard, useMinLoading } from "@/components/Skeleton";
 import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
-import { BottomSheet, Button, EmptyState, Input, TopBar } from "@/components/ui";
+import { BottomSheet, Button, CurrencyInput, EmptyState, Input, TopBar } from "@/components/ui";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
-import { formatBRL, formatDateFull, parseBRL } from "@/lib/format";
+import { AnimatedBRL } from "@/components/AnimatedNumber";
+import { formatBRL, formatDateFull } from "@/lib/format";
+import { CATEGORY_PALETTE } from "@/lib/categoryColors";
 import { cn } from "@/lib/cn";
 import {
   addGoalEntry, createGoal, deleteGoal, listGoalEntries, listGoals,
@@ -30,6 +32,7 @@ export default function ObjetivosPage() {
   const [detail, setDetail] = useState<Goal | null>(null);
   const [entries, setEntries] = useState<GoalEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -53,7 +56,7 @@ export default function ObjetivosPage() {
       } />
 
       <section className="mx-auto max-w-md px-5 pt-4 pb-6 space-y-4">
-        {loading ? (
+        {showSkeleton ? (
           <div className="space-y-4">
             <SkeletonCard className="h-32" />
             <SkeletonCard className="h-32" />
@@ -110,7 +113,7 @@ export default function ObjetivosPage() {
 function NovoObjetivoForm({ onDone }: { onDone: () => void | Promise<void> }) {
   const { user } = useAuth();
   const [nome, setNome] = useState("");
-  const [valorStr, setValorStr] = useState("");
+  const [valor, setValor] = useState(0);
   const [icone, setIcone] = useState("target");
   const [cor, setCor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -119,24 +122,19 @@ function NovoObjetivoForm({ onDone }: { onDone: () => void | Promise<void> }) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const meta = parseBRL(valorStr);
-    if (!nome.trim() || meta <= 0) { setErro("Preencha nome e meta > 0."); return; }
+    if (!nome.trim() || valor <= 0) { setErro("Preencha nome e meta > 0."); return; }
     setSaving(true);
     try {
-      await createGoal(user.id, { nome: nome.trim(), valor_meta: meta, icone, cor });
+      await createGoal(user.id, { nome: nome.trim(), valor_meta: valor, icone, cor });
       await onDone();
     } catch (err) { setErro(err instanceof Error ? err.message : "Falha"); }
     finally { setSaving(false); }
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
+    <form onSubmit={submit} className="space-y-4">
       <Input name="nome" label="Nome" placeholder="Ex.: Casamento" value={nome} onChange={(e) => setNome(e.target.value)} required />
-      <label className="block">
-        <span className="text-bodysm text-ink-muted font-medium">Valor meta (R$)</span>
-        <input inputMode="decimal" value={valorStr} onChange={(e) => setValorStr(e.target.value)} placeholder="0,00"
-          className="mt-1.5 h-12 w-full rounded-md bg-surface-muted px-4 text-body text-ink outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple text-right" />
-      </label>
+      <CurrencyInput label="Valor meta" value={valor} onChange={setValor} />
       <div>
         <span className="text-bodysm text-ink-muted font-medium">Ícone</span>
         <div className="mt-2 grid grid-cols-6 gap-2">
@@ -149,8 +147,20 @@ function NovoObjetivoForm({ onDone }: { onDone: () => void | Promise<void> }) {
           ))}
         </div>
       </div>
-      <Input name="cor" label="Cor (hex, opcional)" placeholder="#4C5FA8"
-        value={cor ?? ""} onChange={(e) => setCor(e.target.value || null)} />
+      <div>
+        <span className="text-bodysm text-ink-muted font-medium">Cor</span>
+        <div className="mt-2 grid grid-cols-6 gap-2">
+          {CATEGORY_PALETTE.map((c) => {
+            const active = cor === c.hex;
+            return (
+              <button key={c.hex} type="button" onClick={() => setCor(c.hex)} aria-label={c.nome}
+                className={cn("aspect-square rounded-full transition-all duration-base ease-apple",
+                  active ? "ring-2 ring-offset-2 ring-offset-surface scale-110" : "hover:scale-105")}
+                style={{ background: c.hex, boxShadow: active ? `0 0 0 2px ${c.hex}` : undefined }} />
+            );
+          })}
+        </div>
+      </div>
       {erro && <p className="text-caption text-danger">{erro}</p>}
       <Button type="submit" size="lg" className="w-full" loading={saving}>Criar objetivo</Button>
     </form>
@@ -163,7 +173,7 @@ function DetalheObjetivo({ goal, entries, onAdded, onDelete }: {
   onDelete: () => void | Promise<void>;
 }) {
   const { user } = useAuth();
-  const [valorStr, setValorStr] = useState("");
+  const [valor, setValor] = useState(0);
   const [descricao, setDescricao] = useState("");
   const [saving, setSaving] = useState(false);
   const pct = goal.valor_meta > 0 ? Math.min(100, (Number(goal.valor_atual) / Number(goal.valor_meta)) * 100) : 0;
@@ -171,12 +181,11 @@ function DetalheObjetivo({ goal, entries, onAdded, onDelete }: {
   async function aportar(e: FormEvent) {
     e.preventDefault();
     if (!user) return;
-    const valor = parseBRL(valorStr);
     if (valor === 0) return;
     setSaving(true);
     try {
       await addGoalEntry(goal.id, user.id, valor, descricao.trim() || null);
-      setValorStr(""); setDescricao("");
+      setValor(0); setDescricao("");
       await onAdded();
     } finally { setSaving(false); }
   }
@@ -185,16 +194,12 @@ function DetalheObjetivo({ goal, entries, onAdded, onDelete }: {
     <div className="space-y-4">
       <div>
         <p className="text-caption text-ink-subtle uppercase tracking-wide">Progresso</p>
-        <p className="text-display text-ink">{formatBRL(Number(goal.valor_atual))}</p>
+        <AnimatedBRL value={Number(goal.valor_atual)} className="block text-display text-ink" />
         <p className="text-bodysm text-ink-muted">de {formatBRL(Number(goal.valor_meta))} · {Math.round(pct)}%</p>
       </div>
 
-      <form onSubmit={aportar} className="space-y-3">
-        <label className="block">
-          <span className="text-bodysm text-ink-muted font-medium">Novo aporte (R$)</span>
-          <input inputMode="decimal" value={valorStr} onChange={(e) => setValorStr(e.target.value)} placeholder="0,00"
-            className="mt-1.5 h-14 w-full rounded-md bg-surface-muted px-4 text-heading text-ink text-right outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
-        </label>
+      <form onSubmit={aportar} className="space-y-4">
+        <CurrencyInput label="Novo aporte" value={valor} onChange={setValor} large />
         <Input name="descricao" label="Descrição (opcional)" placeholder="Ex.: bônus do trabalho"
           value={descricao} onChange={(e) => setDescricao(e.target.value)} />
         <Button type="submit" size="lg" className="w-full" loading={saving}>Adicionar aporte</Button>

@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { Button, Input } from "@/components/ui";
+import { Button, CurrencyInput, Input } from "@/components/ui";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { parseBRL, formatBRNumber, todayISO } from "@/lib/format";
+import { formatBRL, todayISO } from "@/lib/format";
 import type { Category, TransactionRow } from "@/lib/types";
 
 export type TransactionDraft = {
@@ -33,7 +33,7 @@ export function TransactionForm({
   submitLabel = "Salvar", cancelHref,
 }: Props) {
   const [tipo, setTipo]           = useState<"gasto" | "entrada">(inicial?.tipo ?? "gasto");
-  const [valorStr, setValorStr]   = useState<string>(inicial?.valor ? formatBRNumber(inicial.valor) : "");
+  const [valor, setValor]         = useState<number>(inicial?.valor ?? 0);
   const [categoriaId, setCategoriaId] = useState<string | null>(inicial?.categoria_id ?? null);
   const [descricao, setDescricao] = useState(inicial?.descricao ?? "");
   const [data, setData]           = useState(inicial?.data ?? todayISO());
@@ -44,7 +44,7 @@ export function TransactionForm({
 
   useEffect(() => {
     if (inicial?.tipo)         setTipo(inicial.tipo);
-    if (inicial?.valor)        setValorStr(formatBRNumber(inicial.valor));
+    if (inicial?.valor)        setValor(inicial.valor);
     if (inicial?.categoria_id) setCategoriaId(inicial.categoria_id);
     if (inicial?.descricao)    setDescricao(inicial.descricao);
     if (inicial?.data)         setData(inicial.data);
@@ -55,7 +55,6 @@ export function TransactionForm({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const valor = parseBRL(valorStr);
     if (valor <= 0) { setErro("Informe um valor maior que zero."); return; }
     setErro(null); setSaving(true);
     try {
@@ -95,21 +94,7 @@ export function TransactionForm({
         <ToggleTipo active={tipo === "entrada"} tone="success" label="Entrada" onClick={() => setTipo("entrada")} />
       </div>
 
-      {/* Valor */}
-      <label className="block">
-        <span className="text-bodysm text-ink-muted font-medium">Valor (R$)</span>
-        <input
-          inputMode="decimal"
-          value={valorStr}
-          onChange={(e) => setValorStr(e.target.value)}
-          placeholder="0,00"
-          className={cn(
-            "mt-1.5 h-14 w-full rounded-md bg-surface-muted px-4 text-display text-ink text-right",
-            "outline-none border border-transparent focus:border-brand focus:bg-surface",
-            "transition-colors duration-base ease-apple",
-          )}
-        />
-      </label>
+      <CurrencyInput label="Valor" value={valor} onChange={setValor} large />
 
       {/* Categoria: grid de chips */}
       <div>
@@ -168,9 +153,7 @@ export function TransactionForm({
                 value={parcelasStr} onChange={(e) => setParcelasStr(e.target.value.replace(/\D/g, ""))}
                 className="h-11 w-20 rounded-md bg-surface-muted px-3 text-body text-ink text-center outline-none border border-transparent focus:border-brand focus:bg-surface transition-colors duration-base ease-apple" />
               <span className="text-bodysm text-ink-muted">
-                parcelas de {parseBRL(valorStr) > 0
-                  ? "R$ " + formatBRNumber(parseBRL(valorStr) / Math.max(2, Number(parcelasStr) || 2))
-                  : "R$ 0,00"}
+                parcelas de {formatBRL(valor / Math.max(2, Number(parcelasStr) || 2))}
               </span>
             </div>
           )}

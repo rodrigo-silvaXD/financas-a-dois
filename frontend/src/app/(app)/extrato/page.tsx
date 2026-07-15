@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Filter, Search, Trash2, Wallet, X } from "lucide-react";
-import { SkeletonRow } from "@/components/Skeleton";
+import { SkeletonRow, useMinLoading } from "@/components/Skeleton";
+import { OriginBadge } from "@/components/OriginBadge";
 import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
-import { Badge, BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
+import { CategoryIcon, CategoryAvatar } from "@/components/CategoryIcon";
 import { formatBRL, formatDateFull, parseBRL } from "@/lib/format";
 import { normalize } from "@/lib/normalize";
 import { cn } from "@/lib/cn";
@@ -24,13 +25,22 @@ const filtros: { id: Filtro; label: string }[] = [
   { id: "mes", label: "Mês" }, { id: "ano", label: "Ano" }, { id: "tudo", label: "Todos" },
 ];
 
+// Serializa Date como YYYY-MM-DD LOCAL (evita drift de fuso — toISOString retorna UTC).
+function localISO(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 function inicioDoPeriodo(f: Filtro): string | null {
   const d = new Date();
-  if (f === "semana") d.setDate(d.getDate() - 7);
-  else if (f === "mes") d.setDate(1);
-  else if (f === "ano") { d.setMonth(0); d.setDate(1); }
-  else if (f === "tudo") return null;
-  return d.toISOString().slice(0, 10);
+  if (f === "hoje")      { /* d = hoje */ }
+  else if (f === "semana") d.setDate(d.getDate() - 7);
+  else if (f === "mes")    d.setDate(1);
+  else if (f === "ano")    { d.setMonth(0); d.setDate(1); }
+  else                     return null;   // "tudo"
+  return localISO(d);
 }
 
 type Advanced = {
@@ -55,6 +65,7 @@ export default function ExtratoPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -167,7 +178,7 @@ export default function ExtratoPage() {
           )}
         </div>
 
-        {loading ? (
+        {showSkeleton ? (
           <div className="space-y-3">
             <SkeletonRow />
             <SkeletonRow />
@@ -184,9 +195,12 @@ export default function ExtratoPage() {
                 <div key={data}>
                   <div className="mb-3 flex items-baseline justify-between">
                     <h3 className="text-bodysm text-ink-muted font-medium">{formatDateFull(data)}</h3>
-                    <span className={cn("text-caption font-semibold", totalDia >= 0 ? "text-success" : "text-danger")}>
-                      {totalDia >= 0 ? "+" : "−"} {formatBRL(Math.abs(totalDia))}
-                    </span>
+                    {itens.length > 1 && (
+                      <span className={cn("text-caption font-semibold",
+                        totalDia >= 0 ? "text-success" : "text-danger")}>
+                        Total {totalDia >= 0 ? "+" : "−"} {formatBRL(Math.abs(totalDia))}
+                      </span>
+                    )}
                   </div>
                   <motion.ul className="space-y-3"
                     variants={staggerContainerFast} initial="initial" animate="animate">
@@ -195,21 +209,14 @@ export default function ExtratoPage() {
                         <motion.li key={r.id} variants={fadeUpItem} layout
                           exit={{ opacity: 0, x: -40, transition: { duration: 0.22, ease: "linear" } }}>
                           <Card className="flex items-center gap-3 p-4">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-surface-muted text-ink-muted shrink-0"
-                              style={r.categoria?.cor ? { background: r.categoria.cor } : undefined}>
-                              {r.categoria?.icone
-                                ? <CategoryIcon name={r.categoria.icone} size={18} strokeWidth={1.75} />
-                                : <Wallet size={18} strokeWidth={1.75} />}
-                            </div>
+                            <CategoryAvatar categoria={r.categoria} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-body text-ink font-medium">{r.descricao || r.categoria?.nome || "Sem descrição"}</p>
                               <div className="flex items-center gap-1.5 flex-wrap mt-1">
                                 <span className="text-caption text-ink-subtle">{r.categoria?.nome ?? "—"}</span>
-                                {(r.origem === "ia_texto" || r.origem === "ia_foto") && <Badge tone="brand">✨ IA</Badge>}
-                                {r.parcela_total && r.parcela_atual && (
-                                  <Badge tone="neutral">Parcela {r.parcela_atual}/{r.parcela_total}</Badge>
-                                )}
-                                {r.origem === "recorrente" && <Badge tone="neutral">Recorrente</Badge>}
+                                <OriginBadge origem={r.origem}
+                                  parcela={r.parcela_total && r.parcela_atual
+                                    ? { atual: r.parcela_atual, total: r.parcela_total } : null} />
                               </div>
                             </div>
                             <div className="text-right">

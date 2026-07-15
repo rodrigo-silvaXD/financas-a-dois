@@ -21,6 +21,14 @@ export function BottomSheet({ open, onClose, title, children, className }: Props
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Trava scroll do body enquanto o sheet estiver aberto.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   return (
     <AnimatePresence>
       {open && (

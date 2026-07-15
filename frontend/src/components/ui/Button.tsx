@@ -12,6 +12,7 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "ref"> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  loadingLabel?: string;   // texto durante loading; default "Salvando…"
 }
 
 const variantClass: Record<Variant, string> = {
@@ -26,7 +27,7 @@ const sizeClass: Record<Size, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
-  { variant = "primary", size = "md", loading, className, children, disabled, ...rest },
+  { variant = "primary", size = "md", loading, loadingLabel = "Salvando…", className, children, disabled, ...rest },
   ref,
 ) {
   return (
@@ -48,7 +49,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(function Button(
       {loading ? (
         <span className="inline-flex items-center gap-2">
           <span className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-          Salvando…
+          {loadingLabel}
         </span>
       ) : children}
     </motion.button>

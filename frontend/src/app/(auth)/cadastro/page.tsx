@@ -69,7 +69,7 @@ export default function CadastroPage() {
         />
         {erro && <p className="text-caption text-danger">{erro}</p>}
         {msg && <p className="text-caption text-success">{msg}</p>}
-        <Button type="submit" size="lg" loading={loading} className="w-full mt-2">
+        <Button type="submit" size="lg" loading={loading} loadingLabel="Criando conta…" className="w-full mt-2">
           Criar conta
         </Button>
       </form>

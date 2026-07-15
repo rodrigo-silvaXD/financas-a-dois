@@ -16,6 +16,8 @@ async function build() {
     logger: env.NODE_ENV === "development"
       ? { transport: { target: "pino-pretty" } }
       : true,
+    // 12MB — cobre foto de recibo em base64 (JPEG 8MB * 1.33 overhead + margem).
+    bodyLimit: 12 * 1024 * 1024,
   });
 
   await app.register(sensible);

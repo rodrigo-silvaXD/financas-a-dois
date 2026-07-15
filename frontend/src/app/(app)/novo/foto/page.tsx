@@ -10,6 +10,7 @@ import { TransactionForm, type TransactionDraft } from "@/components/Transaction
 import { saveTransaction } from "@/lib/transactions";
 import { api } from "@/lib/api";
 import { todayISO } from "@/lib/format";
+import { blobToBase64, compressImage } from "@/lib/image";
 import { useToast } from "@/components/Toast";
 import type { Category } from "@/lib/types";
 
@@ -40,22 +41,17 @@ export default function NovoFotoPage() {
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 8 * 1024 * 1024) { setErro("Imagem acima de 8MB."); return; }
+    if (file.size > 20 * 1024 * 1024) { setErro("Imagem acima de 20MB."); return; }
 
-    const dataUrl = await new Promise<string>((res, rej) => {
-      const r = new FileReader();
-      r.onload = () => res(String(r.result));
-      r.onerror = () => rej(new Error("Falha ao ler imagem."));
-      r.readAsDataURL(file);
-    });
-    setPreview(dataUrl);
     setLoading(true); setErro(null);
     try {
-      const base64 = dataUrl.split(",")[1];
-      const media_type = file.type || "image/jpeg";
+      // Comprime no cliente antes de enviar — fotos de celular saem de 8MB pra ~300KB.
+      const compressed = await compressImage(file, { maxWidth: 1200, quality: 0.7 });
+      setPreview(URL.createObjectURL(compressed));
+      const base64 = await blobToBase64(compressed);
       const res = await api<Parsed>("/ai/parse-receipt", {
         method: "POST",
-        body: JSON.stringify({ image_base64: base64, media_type, data_hoje: todayISO() }),
+        body: JSON.stringify({ image_base64: base64, media_type: "image/jpeg", data_hoje: todayISO() }),
       });
       setParsed(res);
     } catch (err) {
@@ -69,6 +65,7 @@ export default function NovoFotoPage() {
     if (!user) return;
     await saveTransaction(user.id, { ...draft, origem: "ia_foto" });
     toast.success("Salvo");
+    await new Promise((r) => setTimeout(r, 100));
     router.replace("/");
   }
 

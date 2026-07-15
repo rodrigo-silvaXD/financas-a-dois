@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { motion } from "framer-motion";
 import { Plus, Pencil } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
-import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import { BottomSheet, Button, Card, CurrencyInput, EmptyState, Input, TopBar } from "@/components/ui";
+import { CategoryIcon, CategoryAvatar } from "@/components/CategoryIcon";
+import { SkeletonRow, useMinLoading } from "@/components/Skeleton";
+import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { cn } from "@/lib/cn";
-import { parseBRL } from "@/lib/format";
+import { CATEGORY_PALETTE } from "@/lib/categoryColors";
 import type { Category } from "@/lib/types";
 
 // Set de ícones sugeridos (pode adicionar mais nome kebab do Lucide livremente).
@@ -20,14 +23,16 @@ const iconePool = [
 
 type Draft = {
   id?: string; nome: string; icone: string; cor: string | null;
-  ativa: boolean; ordem: number; limiteStr: string;
+  ativa: boolean; ordem: number; limite: number;
 };
 
 export default function CategoriasPage() {
   const { user } = useAuth();
   const [cats, setCats] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -41,13 +46,13 @@ export default function CategoriasPage() {
   function abrirNovo() {
     setDraft({
       nome: "", icone: "more-horizontal", cor: null, ativa: true,
-      ordem: (cats.at(-1)?.ordem ?? 0) + 1, limiteStr: "",
+      ordem: (cats.at(-1)?.ordem ?? 0) + 1, limite: 0,
     });
   }
   function abrirEdit(c: Category) {
     setDraft({
       id: c.id, nome: c.nome, icone: c.icone, cor: c.cor, ativa: c.ativa,
-      ordem: c.ordem, limiteStr: c.limite_mensal ? String(c.limite_mensal) : "",
+      ordem: c.ordem, limite: c.limite_mensal ? Number(c.limite_mensal) : 0,
     });
   }
 
@@ -55,19 +60,21 @@ export default function CategoriasPage() {
     e.preventDefault();
     if (!user || !draft) return;
     if (!draft.nome.trim()) return;
-    const limite = draft.limiteStr ? parseBRL(draft.limiteStr) : 0;
-    const patch = {
-      nome: draft.nome.trim(), icone: draft.icone, cor: draft.cor,
-      ativa: draft.ativa, ordem: draft.ordem,
-      limite_mensal: limite > 0 ? limite : null,
-    };
-    if (draft.id) {
-      await supabase.from("categories").update(patch).eq("id", draft.id);
-    } else {
-      await supabase.from("categories").insert({ user_id: user.id, ...patch });
-    }
-    setDraft(null);
-    load();
+    setSaving(true);
+    try {
+      const patch = {
+        nome: draft.nome.trim(), icone: draft.icone, cor: draft.cor,
+        ativa: draft.ativa, ordem: draft.ordem,
+        limite_mensal: draft.limite > 0 ? draft.limite : null,
+      };
+      if (draft.id) {
+        await supabase.from("categories").update(patch).eq("id", draft.id);
+      } else {
+        await supabase.from("categories").insert({ user_id: user.id, ...patch });
+      }
+      setDraft(null);
+      load();
+    } finally { setSaving(false); }
   }
 
   async function toggleAtiva(c: Category) {
@@ -85,18 +92,19 @@ export default function CategoriasPage() {
       } />
 
       <section className="mx-auto max-w-md px-5 pt-4">
-        {loading ? (
-          <Card className="text-center text-ink-subtle">Carregando…</Card>
+        {showSkeleton ? (
+          <div className="space-y-3">
+            <SkeletonRow /><SkeletonRow /><SkeletonRow /><SkeletonRow />
+          </div>
         ) : cats.length === 0 ? (
           <EmptyState title="Nenhuma categoria" description="Toque em + no topo para criar." />
         ) : (
-          <ul className="space-y-2">
+          <motion.ul className="space-y-3"
+            variants={staggerContainerFast} initial="initial" animate="animate">
             {cats.map((c) => (
-              <li key={c.id}>
-                <Card className={cn("flex items-center gap-3 p-3", !c.ativa && "opacity-50")}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-md bg-surface-muted text-ink-muted">
-                    <CategoryIcon name={c.icone} size={18} strokeWidth={1.75} />
-                  </div>
+              <motion.li key={c.id} variants={fadeUpItem}>
+                <Card className={cn("flex items-center gap-3 p-4", !c.ativa && "opacity-50")}>
+                  <CategoryAvatar categoria={c} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body text-ink">{c.nome}</p>
                     <p className="text-caption text-ink-subtle">Ordem {c.ordem}{!c.ativa && " · inativa"}</p>
@@ -110,9 +118,9 @@ export default function CategoriasPage() {
                     <Pencil size={16} />
                   </button>
                 </Card>
-              </li>
+              </motion.li>
             ))}
-          </ul>
+          </motion.ul>
         )}
       </section>
 
@@ -140,14 +148,27 @@ export default function CategoriasPage() {
                 })}
               </div>
             </div>
-            <Input name="cor" label="Cor (hex, opcional)" placeholder="#F1F2F5"
-              value={draft.cor ?? ""} onChange={(e) => setDraft({ ...draft, cor: e.target.value || null })} />
-            <Input name="limite" label="Limite mensal (R$, opcional)" placeholder="0,00" inputMode="decimal"
-              value={draft.limiteStr} onChange={(e) => setDraft({ ...draft, limiteStr: e.target.value })}
-              hint="Deixe vazio para não ter limite. Você recebe alerta ao atingir 85%." />
+            <div>
+              <span className="text-bodysm text-ink-muted font-medium">Cor</span>
+              <div className="mt-2 grid grid-cols-6 gap-2">
+                {CATEGORY_PALETTE.map((c) => {
+                  const active = draft.cor === c.hex;
+                  return (
+                    <button key={c.hex} type="button" aria-label={c.nome}
+                      onClick={() => setDraft({ ...draft, cor: c.hex })}
+                      className={cn("aspect-square rounded-full transition-all duration-base ease-apple",
+                        active ? "ring-2 ring-offset-2 ring-offset-surface scale-110" : "hover:scale-105")}
+                      style={{ background: c.hex }} />
+                  );
+                })}
+              </div>
+            </div>
+            <CurrencyInput label="Limite mensal (opcional)" value={draft.limite}
+              onChange={(v) => setDraft({ ...draft, limite: v })}
+              hint="Deixe zero para não ter limite. Alerta em 85%." />
             <Input name="ordem" label="Ordem" type="number" value={String(draft.ordem)}
               onChange={(e) => setDraft({ ...draft, ordem: Number(e.target.value) || 0 })} />
-            <Button type="submit" size="lg" className="w-full">Salvar</Button>
+            <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
           </form>
         )}
       </BottomSheet>

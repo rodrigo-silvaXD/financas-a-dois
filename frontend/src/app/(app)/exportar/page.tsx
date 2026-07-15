@@ -43,14 +43,14 @@ export default function ExportarPage() {
       <TopBar title="Exportar dados" showBack />
       <section className="mx-auto max-w-md px-5 pt-4 pb-8 space-y-5">
         <Card>
-          <h3 className="text-heading text-ink mb-3">Período</h3>
-          <div className="grid grid-cols-2 gap-3">
+          <h3 className="text-heading text-ink mb-4">Período</h3>
+          <div className="grid grid-cols-2 gap-3 min-w-0">
             <Input name="inicio" label="Início" type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} />
             <Input name="fim"    label="Fim"    type="date" value={fim}    onChange={(e) => setFim(e.target.value)} />
           </div>
         </Card>
 
-        <div className="space-y-2">
+        <div className="space-y-3">
           <ExportRow icon={<FileType size={20} />} title="CSV" desc="Arquivo simples, abre no Excel ou Sheets."
             loading={gerando === "csv"} onClick={() => baixar("csv")} />
           <ExportRow icon={<FileSpreadsheet size={20} />} title="Excel (.xlsx)" desc="Planilha nativa do Excel."
@@ -74,7 +74,7 @@ function ExportRow({ icon, title, desc, loading, onClick }: {
         <p className="text-body text-ink">{title}</p>
         <p className="text-caption text-ink-subtle">{desc}</p>
       </div>
-      <Button size="md" variant="secondary" onClick={onClick} loading={loading}>
+      <Button size="md" variant="secondary" onClick={onClick} loading={loading} loadingLabel="Exportando…">
         <Download size={16} />
       </Button>
     </Card>

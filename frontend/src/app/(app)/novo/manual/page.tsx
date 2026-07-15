@@ -26,6 +26,8 @@ export default function NovoManualPage() {
     if (!user) return;
     await saveTransaction(user.id, draft);
     toast.success("Salvo");
+    // micro-delay: dá tempo do toast aparecer antes da transição de página
+    await new Promise((r) => setTimeout(r, 100));
     router.replace("/");
   }
 

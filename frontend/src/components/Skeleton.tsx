@@ -1,4 +1,31 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+
+/**
+ * Anti-flash: uma vez visível, o skeleton fica no mínimo `min` ms na tela.
+ * Evita o flash de 50ms quando os dados chegam rápido — o conteúdo entra
+ * de uma vez, com a animação de stagger dele.
+ */
+export function useMinLoading(loading: boolean, min = 300): boolean {
+  const [show, setShow] = useState(loading);
+  const shownAt = useRef<number>(loading ? Date.now() : 0);
+
+  useEffect(() => {
+    if (loading) {
+      shownAt.current = Date.now();
+      setShow(true);
+      return;
+    }
+    const elapsed = Date.now() - shownAt.current;
+    if (elapsed >= min) { setShow(false); return; }
+    const t = setTimeout(() => setShow(false), min - elapsed);
+    return () => clearTimeout(t);
+  }, [loading, min]);
+
+  return show;
+}
 
 /**
  * Bloco cinza com pulse shimmer. Usar como placeholder de conteúdo enquanto carrega.

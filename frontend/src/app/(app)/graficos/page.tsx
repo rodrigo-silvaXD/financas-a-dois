@@ -8,6 +8,7 @@ import {
 import { motion } from "framer-motion";
 import { useAuth } from "@/components/auth-provider";
 import { Card, EmptyState, TopBar } from "@/components/ui";
+import { SkeletonCard, useMinLoading } from "@/components/Skeleton";
 import { formatBRL } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { fetchTxForCharts, mesKey, ultimosMesesLabels, type Periodo } from "@/lib/charts";
@@ -25,6 +26,7 @@ export default function GraficosPage() {
   const [periodo, setPeriodo] = useState<Periodo>(6);
   const [tx, setTx] = useState<Awaited<ReturnType<typeof fetchTxForCharts>>>([]);
   const [loading, setLoading] = useState(true);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -62,11 +64,20 @@ export default function GraficosPage() {
     return Array.from(base.values()).map((r) => ({ ...r, economia: r.entradas - r.gastos }));
   }, [tx, meses]);
 
-  if (loading) return <main><TopBar title="Gráficos" showBack /><section className="mx-auto max-w-md px-4 pt-4"><Card className="text-center text-ink-subtle">Carregando…</Card></section></main>;
+  if (showSkeleton) return (
+    <main>
+      <TopBar title="Gráficos" showBack />
+      <section className="mx-auto max-w-md px-5 pt-4 space-y-4">
+        <SkeletonCard className="h-64" />
+        <SkeletonCard className="h-52" />
+        <SkeletonCard className="h-52" />
+      </section>
+    </main>
+  );
   if (tx.length === 0) return (
     <main>
       <TopBar title="Gráficos" showBack />
-      <section className="mx-auto max-w-md px-4 pt-4">
+      <section className="mx-auto max-w-md px-5 pt-4">
         <EmptyState icon={BarChart3} title="Sem dados" description="Registre alguns lançamentos e volta aqui." />
       </section>
     </main>
@@ -76,18 +87,24 @@ export default function GraficosPage() {
     <main>
       <TopBar title="Gráficos" showBack />
       <section className="mx-auto max-w-md px-5 pt-4 pb-8 space-y-5">
-        {/* Chips de período */}
+        {/* Chips de período — bounce sutil ao selecionar */}
         <div className="flex gap-2 pb-2">
-          {periodos.map((p) => (
-            <button key={p.v} onClick={() => setPeriodo(p.v)}
-              className={cn("shrink-0 rounded-pill px-3 py-1.5 text-bodysm font-medium transition-colors duration-base ease-apple",
-                periodo === p.v ? "bg-brand text-brand-ink" : "bg-surface-muted text-ink-muted")}>
-              {p.label}
-            </button>
-          ))}
+          {periodos.map((p) => {
+            const active = periodo === p.v;
+            return (
+              <motion.button key={p.v} onClick={() => setPeriodo(p.v)}
+                whileTap={{ scale: 0.94 }}
+                animate={active ? { scale: [1, 1.05, 1] } : {}}
+                transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+                className={cn("shrink-0 rounded-pill px-3 py-1.5 text-bodysm font-medium transition-colors duration-base ease-apple",
+                  active ? "bg-brand text-brand-ink" : "bg-surface-muted text-ink-muted")}>
+                {p.label}
+              </motion.button>
+            );
+          })}
         </div>
 
-        <ChartCard title="Gastos por categoria">
+        <ChartCard index={0} title="Gastos por categoria">
           <ResponsiveContainer width="100%" height={240}>
             <PieChart>
               <Pie data={porCategoria} dataKey="value" nameKey="name" innerRadius={55} outerRadius={95}
@@ -100,7 +117,7 @@ export default function GraficosPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Gastos por mês">
+        <ChartCard index={1} title="Gastos por mês">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={porMes}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--hairline))" />
@@ -112,7 +129,7 @@ export default function GraficosPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Evolução da economia">
+        <ChartCard index={2} title="Evolução da economia">
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={porMes}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--hairline))" />
@@ -125,7 +142,7 @@ export default function GraficosPage() {
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Entradas vs Saídas">
+        <ChartCard index={3} title="Entradas vs Saídas">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={porMes}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--hairline))" />
@@ -143,15 +160,17 @@ export default function GraficosPage() {
   );
 }
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function ChartCard({ title, children, index = 0 }: {
+  title: string; children: React.ReactNode; index?: number;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1], delay: index * 0.06 }}
     >
       <Card>
-        <h3 className="text-heading text-ink mb-2">{title}</h3>
+        <h3 className="text-heading text-ink mb-3">{title}</h3>
         {children}
       </Card>
     </motion.div>

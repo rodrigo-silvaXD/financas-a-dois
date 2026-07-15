@@ -7,7 +7,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
 import { Button, Card, EmptyState, TopBar } from "@/components/ui";
 import { AnimatedBRL } from "@/components/AnimatedNumber";
-import { SkeletonCard } from "@/components/Skeleton";
+import { SkeletonCard, useMinLoading } from "@/components/Skeleton";
 import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { formatBRL } from "@/lib/format";
 import { api } from "@/lib/api";
@@ -27,6 +27,8 @@ export default function EstatisticasPage() {
   const [loading, setLoading] = useState(true);
   const [resumo, setResumo] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [semDados, setSemDados] = useState(false);
+  const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -37,7 +39,7 @@ export default function EstatisticasPage() {
   useEffect(() => { load(); }, [load]);
 
   async function gerarResumo() {
-    setGerando(true);
+    setGerando(true); setSemDados(false);
     try {
       const res = await api<{ texto: string; cached: boolean }>("/import/monthly-summary", {
         method: "POST", body: JSON.stringify({ year_month: ym }),
@@ -45,11 +47,16 @@ export default function EstatisticasPage() {
       setResumo(res.texto);
       if (res.cached) toast.success("Resumo carregado");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao gerar resumo");
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.toLowerCase().includes("sem dados") || msg.toLowerCase().includes("suficient")) {
+        setSemDados(true);
+      } else {
+        toast.error(msg || "Falha ao gerar resumo");
+      }
     } finally { setGerando(false); }
   }
 
-  if (loading) return (
+  if (showSkeleton) return (
     <main>
       <TopBar title="Estatísticas" showBack />
       <section className="mx-auto max-w-md px-5 pt-4 space-y-4">
@@ -86,10 +93,15 @@ export default function EstatisticasPage() {
             {resumo ? (
               <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.28 }}
                 className="text-body text-ink leading-relaxed">{resumo}</motion.p>
+            ) : semDados ? (
+              <p className="text-body text-ink-muted leading-relaxed">
+                Adicione alguns lançamentos primeiro para gerar o resumo do mês.
+              </p>
             ) : (
               <>
                 <p className="text-bodysm text-ink-muted mb-4 leading-relaxed">Gere um resumo narrativo do mês com base nos seus dados.</p>
-                <Button size="lg" className="w-full" onClick={gerarResumo} loading={gerando}>
+                <Button size="lg" className="w-full" onClick={gerarResumo}
+                  loading={gerando} loadingLabel="Gerando resumo…">
                   <Sparkles size={18} /> Gerar Resumo do Mês
                 </Button>
               </>
