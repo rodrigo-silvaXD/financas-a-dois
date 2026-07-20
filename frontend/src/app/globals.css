@@ -60,4 +60,7 @@ body {
 @layer utilities {
   .safe-top    { padding-top: env(safe-area-inset-top); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  /* Tabular numerals — dígitos com larguras iguais, ninguém dança quando o valor muda.
+     Usado em saldo, valores animados, tempo. Padrão Apple Wallet/Health. */
+  .tabular-nums { font-feature-settings: 'tnum' 1, 'cv11' 1; font-variant-numeric: tabular-nums; }
 }

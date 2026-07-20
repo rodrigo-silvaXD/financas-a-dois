@@ -49,3 +49,12 @@ export function todayISO(): string {
   const off = d.getTimezoneOffset();
   return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 10);
 }
+
+/** Saudação por horário. Easter egg pós-meia-noite pra reconhecer o casal noturno. */
+export function saudacao(now: Date = new Date()): string {
+  const h = now.getHours();
+  if (h >= 5 && h < 12)  return "Bom dia,";
+  if (h >= 12 && h < 18) return "Boa tarde,";
+  if (h >= 18)           return "Boa noite,";
+  return "Ainda acordado,"; // 0-5h
+}

@@ -5,12 +5,12 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, Heart, MoreHorizontal,
-  PiggyBank, RefreshCw, Sparkles, Target, Wallet,
+  PiggyBank, RefreshCw, Sparkles, Target, TrendingDown, TrendingUp, Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
-import { formatBRL, formatDateShort } from "@/lib/format";
+import { formatBRL, formatDateShort, saudacao } from "@/lib/format";
 import { BottomSheet, Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { CategoryAvatar } from "@/components/CategoryIcon";
@@ -33,6 +33,7 @@ export default function Dashboard() {
   const toast = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [saldoAnterior, setSaldoAnterior] = useState<number | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [parcelas, setParcelas] = useState<ParcelamentoAtivo[]>([]);
@@ -52,16 +53,22 @@ export default function Dashboard() {
       if (n > 0) toast.success(`${n} recorrente${n > 1 ? "s" : ""} lançada${n > 1 ? "s" : ""}`);
     } catch { /* silencioso — não bloqueia dashboard */ }
 
-    const monthStart = new Date(); monthStart.setDate(1);
-    const iso = monthStart.toISOString().slice(0, 10);
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const iso     = monthStart.toISOString().slice(0, 10);
+    const isoPrev = prevMonthStart.toISOString().slice(0, 10);
 
-    const [{ data: prof }, { data: tx }, { data: c }, gs, ps, ctx] = await Promise.all([
+    const [{ data: prof }, { data: tx }, { data: txPrev }, { data: c }, gs, ps, ctx] = await Promise.all([
       supabase.from("profiles").select("id, nome, avatar_url").eq("id", user.id).single(),
       supabase.from("transactions")
         .select("*, categoria:categories(nome, icone, cor)")
         .gte("data", iso)
         .order("data", { ascending: false })
         .order("created_at", { ascending: false }),
+      // Mês anterior — só tipo/valor, o suficiente pra calcular saldo comparativo.
+      supabase.from("transactions").select("tipo, valor")
+        .gte("data", isoPrev).lt("data", iso),
       supabase.from("categories").select("*").eq("user_id", user.id).eq("ativa", true),
       listGoals(user.id),
       listParcelamentosAtivos(user.id),
@@ -69,6 +76,10 @@ export default function Dashboard() {
     ]);
     setProfile(prof as Profile | null);
     setRows((tx ?? []) as Row[]);
+    const prev = (txPrev ?? []) as { tipo: "gasto" | "entrada"; valor: number }[];
+    const sIn = prev.filter((r) => r.tipo === "entrada").reduce((s, r) => s + Number(r.valor), 0);
+    const sOut = prev.filter((r) => r.tipo === "gasto").reduce((s, r) => s + Number(r.valor), 0);
+    setSaldoAnterior(sIn - sOut);
     setCats((c ?? []) as Category[]);
     setGoals(gs);
     setParcelas(ps);
@@ -113,20 +124,25 @@ export default function Dashboard() {
         }
       />
 
-      <section className="mx-auto max-w-md px-5 pt-4 space-y-8">
-        <div>
-          <p className="text-body text-ink-muted">
-            Olá, <span className="text-ink font-semibold">{profile?.nome ?? "…"}</span> 👋
-          </p>
-        </div>
+      <section className="mx-auto max-w-md px-5 pt-2 space-y-7">
+        {/* ─── Saudação + nome (estilo Apple Wallet) ─── */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+          className="pt-1"
+        >
+          <p className="text-body text-ink-muted">{saudacao()}</p>
+          <h1 className="mt-1 text-greet text-ink truncate">{profile?.nome ?? "…"}</h1>
+        </motion.div>
 
         {showSkeleton ? (
           <>
-            <SkeletonCard />
-            <div className="grid grid-cols-3 gap-4">
-              <SkeletonCard className="h-24" />
-              <SkeletonCard className="h-24" />
-              <SkeletonCard className="h-24" />
+            <SkeletonCard className="h-44" />
+            <div className="grid grid-cols-3 gap-3">
+              <SkeletonCard className="h-28" />
+              <SkeletonCard className="h-28" />
+              <SkeletonCard className="h-28" />
             </div>
             <div className="space-y-3">
               <SkeletonRow />
@@ -136,33 +152,42 @@ export default function Dashboard() {
           </>
         ) : (
           <>
-            {/* Saldo do mês — número animado */}
-            <Card className="p-6">
-              <span className="text-caption text-ink-subtle uppercase tracking-wide font-medium">Saldo do mês</span>
-              <div className="mt-2">
-                <AnimatedBRL value={saldo}
-                  className={cn("block text-display", saldo >= 0 ? "text-ink" : "text-danger")} />
-              </div>
-              <div className="mt-6">
-                <ProgressBar value={pctGasto} tone={pctGasto > 80 ? "warning" : "brand"}
-                  label={entradas > 0 ? `Você já gastou ${Math.round(pctGasto)}% do que entrou` : "Sem entradas este mês"} />
-              </div>
-            </Card>
+            {/* ─── HERO: saldo do mês (Apple Wallet style) ─── */}
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.38, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
+            >
+              <Card className="p-6">
+                <div className="flex items-center justify-between">
+                  <span className="text-eyebrow text-ink-subtle uppercase">Saldo do mês</span>
+                  <SaldoTrend atual={saldo} anterior={saldoAnterior} />
+                </div>
+                <div className="mt-3">
+                  <AnimatedBRL value={saldo}
+                    className={cn("block text-hero tabular-nums",
+                      saldo >= 0 ? "text-ink" : "text-danger")} />
+                </div>
+                <div className="mt-5">
+                  <ProgressBar value={pctGasto} tone={pctGasto > 80 ? "warning" : "brand"}
+                    label={entradas > 0 ? `${Math.round(pctGasto)}% do que entrou` : "Sem entradas este mês"} />
+                </div>
+              </Card>
+            </motion.div>
 
-            {/* 3 mini-cards com stagger — clicáveis pra drill-down.
-                Valores em formato compacto (R$ 12,3k) pra caber em telas de 360px. */}
-            <motion.div className="grid grid-cols-3 gap-4"
+            {/* ─── 3 mini-cards verticais com círculo de ícone (Apple Health) ─── */}
+            <motion.div className="grid grid-cols-3 gap-3"
               variants={staggerContainer} initial="initial" animate="animate">
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<ArrowUpRight size={16} />} tone="success" label="Entrou" valor={entradas}
+                <StatTile icon={ArrowUpRight} tone="success" label="Entrou" valor={entradas}
                   onClick={() => setDrill("entrada")} />
               </motion.div>
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<ArrowDownRight size={16} />} tone="danger" label="Saiu" valor={gastos}
+                <StatTile icon={ArrowDownRight} tone="danger" label="Saiu" valor={gastos}
                   onClick={() => setDrill("gasto")} />
               </motion.div>
               <motion.div variants={fadeUpItem}>
-                <MiniCard icon={<PiggyBank size={16} />} tone="brand" label="Economia" valor={Math.max(0, saldo)}
+                <StatTile icon={PiggyBank} tone="brand" label="Economia" valor={Math.max(0, saldo)}
                   onClick={() => setDrill("economia")} />
               </motion.div>
             </motion.div>
@@ -345,21 +370,60 @@ export default function Dashboard() {
   );
 }
 
-function MiniCard({ icon, tone, label, valor, onClick }: {
-  icon: React.ReactNode; tone: "success" | "danger" | "brand"; label: string; valor: number; onClick?: () => void;
+/** Mini indicador de tendência do saldo vs mês anterior. Chip discreto. */
+function SaldoTrend({ atual, anterior }: { atual: number; anterior: number | null }) {
+  if (anterior === null || anterior === 0) return null;
+  const delta = atual - anterior;
+  const pct = Math.round((delta / Math.abs(anterior)) * 100);
+  if (pct === 0) return null;
+  const up = pct > 0;
+  const Icon = up ? TrendingUp : TrendingDown;
+  return (
+    <span className={cn(
+      "inline-flex items-center gap-1 rounded-pill px-2 py-1 text-caption font-semibold tabular-nums",
+      up ? "bg-success/10 text-success" : "bg-danger/10 text-danger",
+    )}>
+      <Icon size={12} strokeWidth={2.4} />
+      {up ? "+" : ""}{pct}%
+    </span>
+  );
+}
+
+/** Tile vertical estilo Apple Health: círculo tonal com ícone + label + valor.
+ *  Diferenciação forte por tom (não só borda/fundo). Tap com spring. */
+function StatTile({ icon: Icon, tone, label, valor, onClick }: {
+  icon: typeof ArrowUpRight;
+  tone: "success" | "danger" | "brand";
+  label: string;
+  valor: number;
+  onClick?: () => void;
 }) {
-  // Fundos tintados bem sutis — verde/vermelho/azul distinguíveis nos 2 temas.
   const tones = {
-    success: { text: "text-success", card: "bg-success/[0.07] border-success/20" },
-    danger:  { text: "text-danger",  card: "bg-danger/[0.07] border-danger/20" },
-    brand:   { text: "text-brand",   card: "bg-brand/[0.07] border-brand/20" },
+    success: { bg: "bg-success/10", ring: "bg-success/15",  icon: "text-success" },
+    danger:  { bg: "bg-danger/10",  ring: "bg-danger/15",   icon: "text-danger"  },
+    brand:   { bg: "bg-brand/10",   ring: "bg-brand/15",    icon: "text-brand"   },
   }[tone];
   return (
-    <Card interactive={!!onClick} onClick={onClick} className={cn("p-4", tones.card)}>
-      <div className={cn("flex items-center gap-1.5 text-caption font-medium", tones.text)}>{icon}<span>{label}</span></div>
-      <AnimatedBRL value={valor} compact
-        className="mt-2 block text-bodysm font-bold text-ink truncate" />
-    </Card>
+    <motion.button
+      onClick={onClick}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 400, damping: 22 }}
+      className={cn(
+        "w-full rounded-2xl border border-hairline p-3.5 text-left",
+        "flex flex-col gap-2.5 min-h-[108px]",
+        "shadow-sm transition-shadow duration-base ease-apple hover:shadow-md",
+        tones.bg,
+      )}
+    >
+      <span className={cn("flex h-8 w-8 items-center justify-center rounded-full", tones.ring)}>
+        <Icon size={16} strokeWidth={2.2} className={tones.icon} />
+      </span>
+      <div>
+        <p className="text-eyebrow text-ink-subtle uppercase">{label}</p>
+        <AnimatedBRL value={valor} compact
+          className="mt-1 block text-[19px] font-bold text-ink tabular-nums leading-tight truncate" />
+      </div>
+    </motion.button>
   );
 }
 

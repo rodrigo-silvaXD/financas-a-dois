@@ -48,12 +48,15 @@ const config: Config = {
         ],
       },
       fontSize: {
+        hero:    ["48px", { lineHeight: "1.05", letterSpacing: "-0.035em", fontWeight: "700" }], // saldo grande estilo Wallet
+        greet:   ["30px", { lineHeight: "1.10", letterSpacing: "-0.025em", fontWeight: "700" }], // nome do usuário
         display: ["34px", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
         title:   ["24px", { lineHeight: "1.20", letterSpacing: "-0.015em", fontWeight: "600" }],
         heading: ["20px", { lineHeight: "1.25", letterSpacing: "-0.01em", fontWeight: "600" }],
         body:    ["16px", { lineHeight: "1.50", letterSpacing: "-0.005em" }],
         bodysm:  ["14px", { lineHeight: "1.45" }],
         caption: ["12px", { lineHeight: "1.40", fontWeight: "500" }],
+        eyebrow: ["11px", { lineHeight: "1.20", letterSpacing: "0.06em", fontWeight: "600" }], // labels tipo SALDO DO MÊS
         button:  ["15px", { lineHeight: "1.20", fontWeight: "600" }],
       },
       transitionTimingFunction: {
