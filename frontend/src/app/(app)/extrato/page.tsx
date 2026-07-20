@@ -12,6 +12,7 @@ import { useToast } from "@/components/Toast";
 import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
 import { CategoryIcon, CategoryAvatar } from "@/components/CategoryIcon";
 import { TransactionForm, type TransactionDraft } from "@/components/TransactionForm";
+import { AnimatedBRL } from "@/components/AnimatedNumber";
 import { formatBRL, formatDateFull, parseBRL } from "@/lib/format";
 import { updateTransaction } from "@/lib/transactions";
 import { normalize } from "@/lib/normalize";
@@ -23,9 +24,12 @@ type Filtro = "hoje" | "semana" | "mes" | "ano" | "tudo";
 type Tipo = "gasto" | "entrada" | "ambos";
 type Origem = TransactionRow["origem"] | "todas";
 
-const filtros: { id: Filtro; label: string }[] = [
-  { id: "hoje", label: "Hoje" }, { id: "semana", label: "Semana" },
-  { id: "mes", label: "Mês" }, { id: "ano", label: "Ano" }, { id: "tudo", label: "Todos" },
+const filtros: { id: Filtro; label: string; longLabel: string }[] = [
+  { id: "hoje",   label: "Hoje",   longLabel: "Somente hoje" },
+  { id: "semana", label: "Semana", longLabel: "Últimos 7 dias" },
+  { id: "mes",    label: "Mês",    longLabel: "Este mês" },
+  { id: "ano",    label: "Ano",    longLabel: "Este ano" },
+  { id: "tudo",   label: "Todos",  longLabel: "Todo o histórico" },
 ];
 
 // Serializa Date como YYYY-MM-DD LOCAL (evita drift de fuso — toISOString retorna UTC).
@@ -186,6 +190,12 @@ export default function ExtratoPage() {
     (adv.origem !== "todas" ? 1 : 0) +
     (adv.minStr || adv.maxStr ? 1 : 0);
 
+  // Totalizadores do período — animam quando o filtro muda.
+  const totalEntradas = filtered.filter((r) => r.tipo === "entrada").reduce((s, r) => s + Number(r.valor), 0);
+  const totalGastos   = filtered.filter((r) => r.tipo === "gasto"  ).reduce((s, r) => s + Number(r.valor), 0);
+  const totalSaldo    = totalEntradas - totalGastos;
+  const filtroInfo    = filtros.find((f) => f.id === filtro)!;
+
   return (
     <main>
       <TopBar title="Extrato" rightSlot={
@@ -218,6 +228,47 @@ export default function ExtratoPage() {
           })}
         </div>
 
+        {/* Totalizador do período — feedback visual instantâneo ao trocar filtro.
+            Números animados (useCountUp) + contexto textual embaixo. */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={filtro}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
+          >
+            <Card className="mb-4 p-4">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="text-caption text-ink-subtle uppercase tracking-wide font-medium">
+                  {filtroInfo.longLabel}
+                </span>
+                <span className="text-caption text-ink-subtle">
+                  {filtered.length} {filtered.length === 1 ? "lançamento" : "lançamentos"}
+                </span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-caption text-ink-subtle">Entradas</p>
+                  <AnimatedBRL value={totalEntradas} compact
+                    className="mt-0.5 block text-bodysm font-semibold text-success" />
+                </div>
+                <div>
+                  <p className="text-caption text-ink-subtle">Saídas</p>
+                  <AnimatedBRL value={totalGastos} compact
+                    className="mt-0.5 block text-bodysm font-semibold text-danger" />
+                </div>
+                <div>
+                  <p className="text-caption text-ink-subtle">Saldo</p>
+                  <AnimatedBRL value={totalSaldo} compact
+                    className={cn("mt-0.5 block text-bodysm font-semibold",
+                      totalSaldo >= 0 ? "text-ink" : "text-danger")} />
+                </div>
+              </div>
+            </Card>
+          </motion.div>
+        </AnimatePresence>
+
         {/* Barra de busca compacta sempre visível */}
         <div className="relative mb-5">
           <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-ink-subtle" />
@@ -242,7 +293,7 @@ export default function ExtratoPage() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={Wallet} title="Nada encontrado" description="Ajuste os filtros ou o período." />
         ) : (
-          <div className="space-y-8 pb-2">
+          <div key={filtro} className="space-y-8 pb-2">
             {grupos.map(([data, itens]) => {
               const totalDia = itens.reduce((s, r) => s + (r.tipo === "entrada" ? 1 : -1) * Number(r.valor), 0);
               return (
