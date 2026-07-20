@@ -2,15 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Filter, Search, Trash2, Wallet, X } from "lucide-react";
+import { Filter, Pencil, Search, Trash2, Wallet, X } from "lucide-react";
 import { SkeletonRow, useMinLoading } from "@/components/Skeleton";
 import { OriginBadge } from "@/components/OriginBadge";
 import { staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
+import { useToast } from "@/components/Toast";
 import { BottomSheet, Button, Card, EmptyState, Input, TopBar } from "@/components/ui";
 import { CategoryIcon, CategoryAvatar } from "@/components/CategoryIcon";
+import { TransactionForm, type TransactionDraft } from "@/components/TransactionForm";
 import { formatBRL, formatDateFull, parseBRL } from "@/lib/format";
+import { updateTransaction } from "@/lib/transactions";
 import { normalize } from "@/lib/normalize";
 import { cn } from "@/lib/cn";
 import type { Category, TransactionRow } from "@/lib/types";
@@ -58,13 +61,19 @@ const emptyAdvanced: Advanced = {
 
 export default function ExtratoPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
   const [filtro, setFiltro] = useState<Filtro>("mes");
   const [adv, setAdv] = useState<Advanced>(emptyAdvanced);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Ações no item: menu (editar/excluir) e sheet de edição.
+  const [actionRow, setActionRow] = useState<Row | null>(null);
+  const [editRow, setEditRow]     = useState<Row | null>(null);
+  // Exclusão otimista com desfazer: guarda IDs "somem da UI" mas ainda no banco.
+  // Um timer no toast decide se aplica o DELETE real ou restaura.
+  const [pendingDelete, setPendingDelete] = useState<Set<string>>(new Set());
   const showSkeleton = useMinLoading(loading);
 
   const load = useCallback(async () => {
@@ -89,11 +98,13 @@ export default function ExtratoPage() {
   useEffect(() => { load(); }, [load]);
 
   // Filtros avançados aplicados client-side sobre rows.
+  // pendingDelete tira o item da UI mesmo antes do DELETE físico (desfazer).
   const filtered = useMemo(() => {
     const nq = normalize(adv.q);
     const min = parseBRL(adv.minStr);
     const max = parseBRL(adv.maxStr);
     return rows.filter((r) => {
+      if (pendingDelete.has(r.id)) return false;
       if (adv.tipo !== "ambos" && r.tipo !== adv.tipo) return false;
       if (adv.origem !== "todas" && r.origem !== adv.origem) return false;
       if (adv.categoryIds.size > 0) {
@@ -107,7 +118,7 @@ export default function ExtratoPage() {
       }
       return true;
     });
-  }, [rows, adv]);
+  }, [rows, adv, pendingDelete]);
 
   const grupos = useMemo(() => {
     const m = new Map<string, Row[]>();
@@ -118,12 +129,55 @@ export default function ExtratoPage() {
     return Array.from(m.entries());
   }, [filtered]);
 
-  async function excluir(id: string) {
-    if (!confirm("Excluir este lançamento?")) return;
-    setDeletingId(id);
-    const { error } = await supabase.from("transactions").delete().eq("id", id);
-    if (!error) setRows((prev) => prev.filter((r) => r.id !== id));
-    setDeletingId(null);
+  /** Exclusão otimista: some da UI imediatamente. Toast com "Desfazer" (5s).
+   *  Se expirar sem desfazer, aplica o DELETE. Se clicar, restaura na UI. */
+  function excluirComDesfazer(row: Row) {
+    setActionRow(null);
+    setPendingDelete((s) => new Set(s).add(row.id));
+    toast.withAction(
+      "Lançamento excluído",
+      {
+        label: "Desfazer",
+        onClick: () => setPendingDelete((s) => {
+          const n = new Set(s); n.delete(row.id); return n;
+        }),
+      },
+      {
+        onDismiss: async () => {
+          const { error } = await supabase.from("transactions").delete().eq("id", row.id);
+          if (error) {
+            // Falhou o DELETE — restaura na UI e avisa.
+            setPendingDelete((s) => { const n = new Set(s); n.delete(row.id); return n; });
+            toast.error("Falha ao excluir");
+            return;
+          }
+          setRows((prev) => prev.filter((r) => r.id !== row.id));
+          setPendingDelete((s) => { const n = new Set(s); n.delete(row.id); return n; });
+        },
+      },
+    );
+  }
+
+  async function salvarEdicao(id: string, draft: TransactionDraft) {
+    await updateTransaction(id, {
+      tipo: draft.tipo,
+      valor: draft.valor,
+      categoria_id: draft.categoria_id,
+      descricao: draft.descricao,
+      data: draft.data,
+    });
+    // Atualiza a linha localmente sem refetch inteiro.
+    setRows((prev) => prev.map((r) => r.id === id ? {
+      ...r,
+      tipo: draft.tipo,
+      valor: draft.valor,
+      categoria_id: draft.categoria_id,
+      descricao: draft.descricao,
+      data: draft.data,
+      categoria: cats.find((c) => c.id === draft.categoria_id) ?? null,
+    } as Row : r));
+    setEditRow(null);
+    toast.success("Alterado");
   }
 
   const activeAdvCount =
@@ -208,7 +262,11 @@ export default function ExtratoPage() {
                       {itens.map((r) => (
                         <motion.li key={r.id} variants={fadeUpItem} layout
                           exit={{ opacity: 0, x: -40, transition: { duration: 0.22, ease: "linear" } }}>
-                          <Card className="flex items-center gap-3 p-4">
+                          <Card
+                            interactive
+                            onClick={() => setActionRow(r)}
+                            className="flex items-center gap-3 p-4"
+                          >
                             <CategoryAvatar categoria={r.categoria} />
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-body text-ink font-medium">{r.descricao || r.categoria?.nome || "Sem descrição"}</p>
@@ -219,17 +277,10 @@ export default function ExtratoPage() {
                                     ? { atual: r.parcela_atual, total: r.parcela_total } : null} />
                               </div>
                             </div>
-                            <div className="text-right">
-                              <span className={cn("block text-body font-semibold",
-                                r.tipo === "entrada" ? "text-success" : "text-danger")}>
-                                {r.tipo === "entrada" ? "+" : "−"} {formatBRL(Number(r.valor))}
-                              </span>
-                              <button onClick={() => excluir(r.id)} disabled={deletingId === r.id}
-                                aria-label="Excluir"
-                                className="mt-1.5 rounded-lg p-1.5 text-ink-subtle hover:text-danger transition-colors duration-base ease-apple disabled:opacity-40">
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                            <span className={cn("text-body font-semibold shrink-0",
+                              r.tipo === "entrada" ? "text-success" : "text-danger")}>
+                              {r.tipo === "entrada" ? "+" : "−"} {formatBRL(Number(r.valor))}
+                            </span>
                           </Card>
                         </motion.li>
                       ))}
@@ -241,6 +292,56 @@ export default function ExtratoPage() {
           </div>
         )}
       </section>
+
+      {/* Ações do item — tap na linha abre isso */}
+      <BottomSheet
+        open={actionRow !== null}
+        onClose={() => setActionRow(null)}
+        title={actionRow?.descricao || actionRow?.categoria?.nome || "Ações"}
+      >
+        {actionRow && (
+          <div className="grid gap-3">
+            <p className="text-bodysm text-ink-muted -mt-2 mb-1">
+              {actionRow.tipo === "entrada" ? "+" : "−"} {formatBRL(Number(actionRow.valor))} · {formatDateFull(actionRow.data)}
+            </p>
+            <Button
+              variant="secondary" size="lg" className="w-full justify-start"
+              onClick={() => { setEditRow(actionRow); setActionRow(null); }}
+            >
+              <Pencil size={18} /> Editar
+            </Button>
+            <Button
+              variant="secondary" size="lg" className="w-full justify-start text-danger"
+              onClick={() => excluirComDesfazer(actionRow)}
+            >
+              <Trash2 size={18} /> Excluir
+            </Button>
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Sheet de edição */}
+      <BottomSheet
+        open={editRow !== null}
+        onClose={() => setEditRow(null)}
+        title="Editar lançamento"
+      >
+        {editRow && (
+          <TransactionForm
+            categorias={cats}
+            inicial={{
+              tipo: editRow.tipo,
+              valor: Number(editRow.valor),
+              categoria_id: editRow.categoria_id,
+              descricao: editRow.descricao,
+              data: editRow.data,
+              origem: editRow.origem,
+            }}
+            onSubmit={(draft) => salvarEdicao(editRow.id, draft)}
+            submitLabel="Salvar alterações"
+          />
+        )}
+      </BottomSheet>
 
       <BottomSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="Filtros">
         <div className="space-y-4">

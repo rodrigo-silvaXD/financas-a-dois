@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, PiggyBank, RefreshCw, Sparkles, Target, Wallet,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, BarChart3, Heart, MoreHorizontal,
+  PiggyBank, RefreshCw, Sparkles, Target, Wallet,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/Toast";
 import { formatBRL, formatDateShort } from "@/lib/format";
-import { Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
+import { BottomSheet, Card, EmptyState, ProgressBar, TopBar } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { CategoryAvatar } from "@/components/CategoryIcon";
 import { GoalCard } from "@/components/GoalCard";
@@ -20,6 +21,7 @@ import { OriginBadge } from "@/components/OriginBadge";
 import { SkeletonCard, SkeletonRow, useMinLoading } from "@/components/Skeleton";
 import { staggerContainer, staggerContainerFast, fadeUpItem } from "@/lib/motion";
 import { listGoals, type Goal } from "@/lib/goals";
+import { getMyFamilyContext, type FamilyContext } from "@/lib/family";
 import { ensureRecurringForCurrentMonth } from "@/lib/recurring";
 import { listParcelamentosAtivos, type ParcelamentoAtivo } from "@/lib/transactions";
 import type { Category, Profile, TransactionRow } from "@/lib/types";
@@ -34,8 +36,10 @@ export default function Dashboard() {
   const [cats, setCats] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [parcelas, setParcelas] = useState<ParcelamentoAtivo[]>([]);
+  const [fam, setFam] = useState<FamilyContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [drill, setDrill] = useState<DrillType | null>(null);
   const showSkeleton = useMinLoading(loading);
 
@@ -51,7 +55,7 @@ export default function Dashboard() {
     const monthStart = new Date(); monthStart.setDate(1);
     const iso = monthStart.toISOString().slice(0, 10);
 
-    const [{ data: prof }, { data: tx }, { data: c }, gs, ps] = await Promise.all([
+    const [{ data: prof }, { data: tx }, { data: c }, gs, ps, ctx] = await Promise.all([
       supabase.from("profiles").select("id, nome, avatar_url").eq("id", user.id).single(),
       supabase.from("transactions")
         .select("*, categoria:categories(nome, icone, cor)")
@@ -61,12 +65,14 @@ export default function Dashboard() {
       supabase.from("categories").select("*").eq("user_id", user.id).eq("ativa", true),
       listGoals(user.id),
       listParcelamentosAtivos(user.id),
+      getMyFamilyContext(user.id),
     ]);
     setProfile(prof as Profile | null);
     setRows((tx ?? []) as Row[]);
     setCats((c ?? []) as Category[]);
     setGoals(gs);
     setParcelas(ps);
+    setFam(ctx);
     setLoading(false);
     setRefreshing(false);
   }, [user, toast]);
@@ -100,20 +106,10 @@ export default function Dashboard() {
       <TopBar
         title=""
         rightSlot={
-          <>
-            <Link href="/estatisticas" aria-label="Estatísticas"
-              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
-              <Sparkles size={20} />
-            </Link>
-            <Link href="/graficos" aria-label="Gráficos"
-              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
-              <BarChart3 size={20} />
-            </Link>
-            <button onClick={() => { setRefreshing(true); load(); }} aria-label="Atualizar"
-              className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
-              <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
-            </button>
-          </>
+          <button onClick={() => setMenuOpen(true)} aria-label="Menu"
+            className="rounded-lg p-2 text-ink-muted hover:bg-surface-muted transition-colors duration-base ease-apple">
+            <MoreHorizontal size={22} />
+          </button>
         }
       />
 
@@ -153,7 +149,8 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* 3 mini-cards com stagger — clicáveis pra drill-down */}
+            {/* 3 mini-cards com stagger — clicáveis pra drill-down.
+                Valores em formato compacto (R$ 12,3k) pra caber em telas de 360px. */}
             <motion.div className="grid grid-cols-3 gap-4"
               variants={staggerContainer} initial="initial" animate="animate">
               <motion.div variants={fadeUpItem}>
@@ -169,6 +166,31 @@ export default function Dashboard() {
                   onClick={() => setDrill("economia")} />
               </motion.div>
             </motion.div>
+
+            {/* Card resumo do Casal — só se tem família ativa */}
+            {fam && (
+              <Link href="/casal" className="block">
+                <Card interactive className="flex items-center gap-4 p-5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                    <Heart size={22} strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-caption text-ink-subtle uppercase tracking-wide font-medium">Conta do casal</p>
+                    <AnimatedBRL
+                      value={Number(fam.coupleAccount.valor_atual)}
+                      className={cn("block text-heading font-semibold mt-1",
+                        Number(fam.coupleAccount.valor_atual) < 0 ? "text-danger" : "text-ink")}
+                    />
+                  </div>
+                  {fam.partner && (
+                    <div className="text-right shrink-0">
+                      <p className="text-caption text-ink-subtle">com</p>
+                      <p className="text-caption text-ink font-medium truncate max-w-[80px]">{fam.partner.nome}</p>
+                    </div>
+                  )}
+                </Card>
+              </Link>
+            )}
 
             {/* Alertas de limite */}
             {alertasLimite.length > 0 && (
@@ -277,6 +299,48 @@ export default function Dashboard() {
           userId={user.id}
         />
       )}
+
+      {/* Menu de ações do dashboard: estatísticas, gráficos, atualizar */}
+      <BottomSheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Ver mais">
+        <div className="grid gap-3">
+          <Link href="/estatisticas" onClick={() => setMenuOpen(false)}>
+            <Card interactive className="flex items-center gap-4 p-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-md bg-brand/10 text-brand">
+                <Sparkles size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-body text-ink font-medium">Estatísticas</p>
+                <p className="text-caption text-ink-subtle">Métricas do mês com IA</p>
+              </div>
+            </Card>
+          </Link>
+          <Link href="/graficos" onClick={() => setMenuOpen(false)}>
+            <Card interactive className="flex items-center gap-4 p-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-md bg-success/10 text-success">
+                <BarChart3 size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-body text-ink font-medium">Gráficos</p>
+                <p className="text-caption text-ink-subtle">Visualizar gastos por categoria e tempo</p>
+              </div>
+            </Card>
+          </Link>
+          <button
+            onClick={() => { setMenuOpen(false); setRefreshing(true); load(); }}
+            className="text-left"
+          >
+            <Card interactive className="flex items-center gap-4 p-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-md bg-surface-muted text-ink-muted">
+                <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-body text-ink font-medium">Atualizar</p>
+                <p className="text-caption text-ink-subtle">Recarregar dados do mês</p>
+              </div>
+            </Card>
+          </button>
+        </div>
+      </BottomSheet>
     </main>
   );
 }
@@ -293,7 +357,7 @@ function MiniCard({ icon, tone, label, valor, onClick }: {
   return (
     <Card interactive={!!onClick} onClick={onClick} className={cn("p-4", tones.card)}>
       <div className={cn("flex items-center gap-1.5 text-caption font-medium", tones.text)}>{icon}<span>{label}</span></div>
-      <AnimatedBRL value={valor}
+      <AnimatedBRL value={valor} compact
         className="mt-2 block text-bodysm font-bold text-ink truncate" />
     </Card>
   );

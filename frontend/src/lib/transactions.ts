@@ -24,6 +24,27 @@ function addMonths(iso: string, months: number): string {
  * Salva transação (ou N transações se draft.parcelas > 1) e aprende pattern se veio de IA.
  * ponytail: mesmo insert. Se parcelado, envia N linhas de uma vez com parcelamento_id compartilhado.
  */
+/** Atualiza uma transação existente (só campos editáveis pelo user).
+ *  Não mexe em parcelamento — edição pontual, não recria a série. */
+export async function updateTransaction(id: string, patch: {
+  tipo: "gasto" | "entrada";
+  valor: number;
+  categoria_id: string | null;
+  descricao: string | null;
+  data: string;
+}) {
+  const { error } = await supabase.from("transactions")
+    .update({
+      tipo: patch.tipo,
+      valor: patch.valor,
+      categoria_id: patch.categoria_id,
+      descricao: patch.descricao,
+      data: patch.data,
+    })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function saveTransaction(userId: string, draft: TransactionDraft) {
   const parcelas = draft.parcelas && draft.parcelas > 1 ? draft.parcelas : 1;
   const parcelamentoId = parcelas > 1 ? uuid() : null;

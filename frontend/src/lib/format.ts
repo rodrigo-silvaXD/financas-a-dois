@@ -5,6 +5,21 @@ export function formatBRL(v: number): string {
   return brl.format(v);
 }
 
+/** Forma compacta pra caber em espaços apertados (mini-cards):
+ *  R$ 999,99 → "R$ 999,99"
+ *  R$ 1.234,56 → "R$ 1.234,56"
+ *  R$ 12.345 → "R$ 12,3k"
+ *  R$ 1.234.567 → "R$ 1,2M"
+ *  Mantém precisão pra valores < 10k (usuário quer ver os centavos).
+ */
+export function formatBRLCompact(v: number): string {
+  const abs = Math.abs(v);
+  const sign = v < 0 ? "-" : "";
+  if (abs < 10_000) return brl.format(v);
+  if (abs < 1_000_000) return `${sign}R$ ${(abs / 1_000).toFixed(1).replace(".", ",")}k`;
+  return `${sign}R$ ${(abs / 1_000_000).toFixed(1).replace(".", ",")}M`;
+}
+
 /** Formatação sem símbolo pra usar em inputs. */
 export function formatBRNumber(v: number): string {
   return brNum.format(v);

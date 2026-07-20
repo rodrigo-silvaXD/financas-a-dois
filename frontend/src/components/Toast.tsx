@@ -5,23 +5,40 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { AlertTriangle, Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type Toast = { id: number; text: string; tone: "success" | "danger" };
+type ToastAction = { label: string; onClick: () => void };
+type Toast = {
+  id: number;
+  text: string;
+  tone: "success" | "danger";
+  action?: ToastAction;
+  onDismiss?: () => void;   // chamado se o toast expirar sem a ação ser clicada
+};
 type Ctx = {
   success: (text: string) => void;
   error: (text: string) => void;
+  /** Toast com ação (ex.: Desfazer). Dura mais tempo pra dar tempo de reagir. */
+  withAction: (text: string, action: ToastAction, opts?: { tone?: Toast["tone"]; onDismiss?: () => void }) => void;
 };
 
 const Ctx = createContext<Ctx | null>(null);
 const DURATION = 2000;
+const DURATION_ACTION = 5000;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<Toast[]>([]);
   const lastErrorRef = useRef<{ text: string; at: number } | null>(null);
 
-  const push = useCallback((text: string, tone: Toast["tone"]) => {
+  const push = useCallback((text: string, tone: Toast["tone"], action?: ToastAction, onDismiss?: () => void) => {
     const id = Date.now() + Math.random();
-    setItems((p) => [...p, { id, text, tone }]);
-    setTimeout(() => setItems((p) => p.filter((t) => t.id !== id)), DURATION);
+    setItems((p) => [...p, { id, text, tone, action, onDismiss }]);
+    const dur = action ? DURATION_ACTION : DURATION;
+    setTimeout(() => {
+      setItems((p) => {
+        const found = p.find((t) => t.id === id);
+        if (found?.onDismiss) found.onDismiss();
+        return p.filter((t) => t.id !== id);
+      });
+    }, dur);
   }, []);
 
   // Escuta erros globais de api() — mostra toast mesmo se o chamador não tratou.
@@ -41,8 +58,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <Ctx.Provider value={{
-      success: (t) => push(t, "success"),
-      error:   (t) => push(t, "danger"),
+      success:    (t) => push(t, "success"),
+      error:      (t) => push(t, "danger"),
+      withAction: (t, action, opts) => push(t, opts?.tone ?? "success", action, opts?.onDismiss),
     }}>
       {children}
       <div
@@ -67,6 +85,18 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               {t.tone === "success" && <Check size={16} strokeWidth={2.4} />}
               {t.tone === "danger"  && <AlertTriangle size={16} strokeWidth={2.4} />}
               <span className="text-bodysm font-medium">{t.text}</span>
+              {t.action && (
+                <button
+                  className="pointer-events-auto ml-2 rounded-pill px-3 py-1 text-caption font-semibold bg-brand/10 text-brand hover:bg-brand/20 transition-colors duration-base ease-apple"
+                  onClick={() => {
+                    t.action!.onClick();
+                    setItems((p) => p.filter((x) => x.id !== t.id));
+                    // Não chama onDismiss — o user reagiu.
+                  }}
+                >
+                  {t.action.label}
+                </button>
+              )}
             </motion.div>
           ))}
         </AnimatePresence>

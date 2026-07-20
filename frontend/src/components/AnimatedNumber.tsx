@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, formatBRLCompact } from "@/lib/format";
 
 /**
  * Anima value do valor anterior (ou 0 se primeira render) até o target.
@@ -32,8 +32,11 @@ export function useCountUp(target: number, duration = 600): number {
   return value;
 }
 
-/** Exibe um valor monetário BRL animando de 0 (ou anterior) até `value`. */
-export function AnimatedBRL({ value, className }: { value: number; className?: string }) {
+/** Exibe um valor monetário BRL animando de 0 (ou anterior) até `value`.
+ *  Passe `compact` pra formato abreviado (R$ 12,3k) em espaços apertados. */
+export function AnimatedBRL({ value, className, compact }: {
+  value: number; className?: string; compact?: boolean;
+}) {
   const v = useCountUp(value);
-  return <span className={className}>{formatBRL(v)}</span>;
+  return <span className={className}>{compact ? formatBRLCompact(v) : formatBRL(v)}</span>;
 }
