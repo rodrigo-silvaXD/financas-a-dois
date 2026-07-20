@@ -131,22 +131,22 @@ export default function PerfilPage() {
                     </div>
                   </div>
                 ) : fam.pendingInvite ? (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-pill bg-surface-muted text-ink-muted">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-surface-muted text-ink-muted">
                         <Mail size={18} />
                       </div>
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 space-y-1">
                         <p className="text-body text-ink truncate">{fam.pendingInvite.invited_email}</p>
                         <Badge tone="warning">Convite pendente</Badge>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="secondary" size="lg" onClick={() => setEditInviteOpen(true)}>
-                        Reenviar/alterar
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button variant="secondary" onClick={() => setEditInviteOpen(true)}>
+                        Alterar
                       </Button>
                       <Button
-                        variant="secondary" size="lg"
+                        variant="secondary"
                         onClick={async () => {
                           try {
                             await cancelPendingInvite();
@@ -479,11 +479,11 @@ function BiometriaControl() {
       </div>
 
       {ativa ? (
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" size="lg" onClick={reiniciar} loading={busy}>
+        <div className="grid grid-cols-2 gap-3">
+          <Button variant="secondary" onClick={reiniciar} loading={busy}>
             Reiniciar
           </Button>
-          <Button variant="secondary" size="lg" onClick={desativar} loading={busy}>
+          <Button variant="secondary" onClick={desativar} loading={busy}>
             Desativar
           </Button>
         </div>
