@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Download, Fingerprint, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
-  Tags, Target, Upload, Users,
+  Download, Fingerprint, LogOut, Mail, MoreHorizontal, Pencil, Repeat, Sun, Moon, Monitor,
+  Tags, Target, Trash2, Upload, UserMinus, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/auth-provider";
@@ -17,6 +17,7 @@ import { APP_VERSION } from "@/lib/app";
 import {
   createFamilyWithInvite, getMyFamilyContext, findPendingInviteForEmail, acceptInvite,
   updatePendingInvite, cancelPendingInvite,
+  renameFamily, leaveFamily, dissolveFamily,
   type FamilyContext, type FamilyMember,
 } from "@/lib/family";
 import {
@@ -36,6 +37,8 @@ export default function PerfilPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editInviteOpen, setEditInviteOpen] = useState(false);
+  const [famMenuOpen, setFamMenuOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -121,7 +124,16 @@ export default function PerfilPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-caption text-ink-subtle uppercase tracking-wide">{fam.family.nome}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-caption text-ink-subtle uppercase tracking-wide truncate">{fam.family.nome}</p>
+                  <button
+                    onClick={() => setFamMenuOpen(true)}
+                    aria-label="Gerenciar família"
+                    className="rounded-md p-1 text-ink-muted hover:text-ink hover:bg-surface-muted transition-colors duration-base ease-apple"
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                </div>
                 {fam.partner ? (
                   <div className="flex items-center gap-3">
                     <Avatar url={fam.partner.avatar_url} nome={fam.partner.nome} />
@@ -242,6 +254,64 @@ export default function PerfilPage() {
           onDone={async () => { setEditInviteOpen(false); await load(); toast.success("Convite atualizado"); }}
         />
       </BottomSheet>
+
+      {/* Gerenciar família — Renomear / Sair / Dissolver */}
+      <BottomSheet open={famMenuOpen} onClose={() => setFamMenuOpen(false)} title="Gerenciar família">
+        {fam && user && (
+          <div className="grid gap-3">
+            {fam.family.criado_por === user.id && (
+              <Button
+                variant="secondary" size="lg" className="w-full justify-start"
+                onClick={() => { setFamMenuOpen(false); setRenameOpen(true); }}
+              >
+                <Pencil size={18} /> Renomear
+              </Button>
+            )}
+            <Button
+              variant="secondary" size="lg" className="w-full justify-start"
+              onClick={async () => {
+                if (!confirm("Sair da família? Você perde acesso à conta compartilhada.")) return;
+                try {
+                  await leaveFamily();
+                  setFamMenuOpen(false);
+                  toast.success("Você saiu da família");
+                  await load();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Falha ao sair");
+                }
+              }}
+            >
+              <UserMinus size={18} /> Sair da família
+            </Button>
+            {fam.family.criado_por === user.id && (
+              <Button
+                variant="secondary" size="lg" className="w-full justify-start text-danger"
+                onClick={async () => {
+                  if (!confirm("Dissolver a família? Isso apaga a conta do casal e todo o histórico compartilhado. Não dá pra desfazer.")) return;
+                  try {
+                    await dissolveFamily();
+                    setFamMenuOpen(false);
+                    toast.success("Família dissolvida");
+                    await load();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Falha ao dissolver");
+                  }
+                }}
+              >
+                <Trash2 size={18} /> Dissolver família
+              </Button>
+            )}
+          </div>
+        )}
+      </BottomSheet>
+
+      {/* Renomear família */}
+      <BottomSheet open={renameOpen} onClose={() => setRenameOpen(false)} title="Renomear família">
+        <RenomearFamiliaForm
+          inicial={fam?.family.nome ?? ""}
+          onDone={async () => { setRenameOpen(false); await load(); toast.success("Nome atualizado"); }}
+        />
+      </BottomSheet>
     </main>
   );
 }
@@ -333,6 +403,39 @@ function EditarPerfilForm({ inicial, onDone }: {
       <Input name="nome" label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
       <Input name="avatar" label="URL do avatar (opcional)" placeholder="https://…"
         value={avatar} onChange={(e) => setAvatar(e.target.value)} hint="Cole a URL de uma foto. Upload por arquivo chega no próximo passo." />
+      {erro && <p className="text-caption text-danger">{erro}</p>}
+      <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
+    </form>
+  );
+}
+
+function RenomearFamiliaForm({ inicial, onDone }: {
+  inicial: string; onDone: () => void | Promise<void>;
+}) {
+  const [nome, setNome] = useState(inicial);
+  const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => { setNome(inicial); }, [inicial]);
+
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    const n = nome.trim();
+    if (!n) { setErro("Nome não pode ser vazio."); return; }
+    setSaving(true); setErro(null);
+    try {
+      await renameFamily(n);
+      await onDone();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao renomear");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={salvar} className="space-y-3">
+      <Input name="nome" label="Nome da família" value={nome} onChange={(e) => setNome(e.target.value)} required />
       {erro && <p className="text-caption text-danger">{erro}</p>}
       <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
     </form>

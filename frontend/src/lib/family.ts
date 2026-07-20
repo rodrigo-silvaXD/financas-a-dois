@@ -119,6 +119,24 @@ export async function cancelPendingInvite() {
   if (error) throw new Error(error.message);
 }
 
+/** Renomeia a família (só o criador). */
+export async function renameFamily(nome: string) {
+  const { error } = await supabase.rpc("rename_my_family", { p_nome: nome });
+  if (error) throw new Error(error.message);
+}
+
+/** Sai da família. Se sobrar 0 membros ativos, a família é apagada em cascata. */
+export async function leaveFamily() {
+  const { error } = await supabase.rpc("leave_my_family");
+  if (error) throw new Error(error.message);
+}
+
+/** Dissolve a família (só o criador). Apaga family + couple_account + entries. */
+export async function dissolveFamily() {
+  const { error } = await supabase.rpc("dissolve_my_family");
+  if (error) throw new Error(error.message);
+}
+
 export type CoupleEntry = {
   id: string;
   couple_account_id: string;
