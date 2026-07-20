@@ -16,6 +16,7 @@ import {
   addCoupleEntry, getMyFamilyContext, listCoupleEntries,
   type CoupleEntry, type FamilyContext,
 } from "@/lib/family";
+import { notifyCouple } from "@/lib/push";
 
 export default function CasalPage() {
   const { user } = useAuth();
@@ -184,6 +185,11 @@ function EntryForm({ tipo, coupleAccountId, userId, onDone }: {
       await addCoupleEntry({
         couple_account_id: coupleAccountId, user_id: userId,
         valor, tipo, descricao: descricao.trim() || null, data,
+      });
+      // Notifica o(s) parceiro(s) por push — best-effort, não bloqueia UX.
+      notifyCouple({
+        couple_account_id: coupleAccountId, tipo, valor,
+        descricao: descricao.trim() || null,
       });
       await new Promise((r) => setTimeout(r, 100));  // pequeno delay pra ver o feedback
       await onDone();

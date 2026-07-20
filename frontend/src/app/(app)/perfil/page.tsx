@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Download, Fingerprint, LogOut, Mail, MoreHorizontal, Pencil, Repeat, Sun, Moon, Monitor,
+  Bell, Download, Fingerprint, LogOut, Mail, MoreHorizontal, Pencil, Repeat, Sun, Moon, Monitor,
   Tags, Target, Trash2, Upload, UserMinus, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -23,6 +23,9 @@ import {
 import {
   disableBiometric, platformAuthAvailable, registerBiometric,
 } from "@/lib/webauthn";
+import {
+  disablePush, enablePush, pushIsEnabled, pushSupported, testPush,
+} from "@/lib/push";
 import type { Profile } from "@/lib/types";
 
 export default function PerfilPage() {
@@ -215,6 +218,9 @@ export default function PerfilPage() {
               </div>
               <div className="pt-4 border-t border-hairline">
                 <BiometriaControl />
+              </div>
+              <div className="pt-4 border-t border-hairline">
+                <PushControl />
               </div>
             </div>
           </SectionCard>
@@ -482,6 +488,95 @@ function ReenviarConviteForm({ emailAtual, onDone }: {
       {erro && <p className="text-caption text-danger">{erro}</p>}
       <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
     </form>
+  );
+}
+
+function PushControl() {
+  const toast = useToast();
+  const [supported, setSupported] = useState<boolean>(false);
+  const [enabled, setEnabled] = useState<boolean>(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setSupported(pushSupported());
+    setEnabled(pushIsEnabled());
+  }, []);
+
+  async function ativar() {
+    setBusy(true);
+    try {
+      await enablePush();
+      setEnabled(true);
+      toast.success("Notificações ativadas");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao ativar");
+    } finally { setBusy(false); }
+  }
+
+  async function desativar() {
+    setBusy(true);
+    try {
+      await disablePush();
+      setEnabled(false);
+      toast.success("Notificações desativadas");
+    } catch { toast.error("Falha ao desativar"); }
+    finally { setBusy(false); }
+  }
+
+  async function testar() {
+    setBusy(true);
+    try {
+      const { sent } = await testPush();
+      if (sent > 0) toast.success("Enviado — cheque suas notificações");
+      else toast.error("Nada enviado. Tente ativar de novo.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha no teste");
+    } finally { setBusy(false); }
+  }
+
+  if (!supported) {
+    return (
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-surface-muted p-2 text-ink-muted"><Bell size={18} /></div>
+        <div className="min-w-0">
+          <p className="text-body text-ink">Notificações indisponíveis</p>
+          <p className="text-caption text-ink-subtle mt-0.5">
+            No iPhone, instale o app na tela inicial (Compartilhar → Adicionar à Tela Inicial) e reabra por ele. Requer iOS 16.4+.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-brand/10 p-2 text-brand"><Bell size={18} /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-body text-ink">Notificações</p>
+          <p className="text-caption text-ink-subtle mt-0.5">
+            {enabled
+              ? "Ativas neste aparelho. Você recebe alertas do parceiro na conta do casal."
+              : "Ative pra ser avisado quando o parceiro mexer na conta do casal."}
+          </p>
+        </div>
+      </div>
+
+      {enabled ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Button variant="secondary" onClick={testar} loading={busy}>
+            Testar
+          </Button>
+          <Button variant="secondary" onClick={desativar} loading={busy}>
+            Desativar
+          </Button>
+        </div>
+      ) : (
+        <Button size="lg" className="w-full" onClick={ativar} loading={busy}>
+          <Bell size={18} /> Ativar notificações
+        </Button>
+      )}
+    </div>
   );
 }
 

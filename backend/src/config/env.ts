@@ -15,6 +15,12 @@ const schema = z.object({
   ANTHROPIC_MODEL: z.string().default("claude-haiku-4-5-20251001"),
 
   JWT_SECRET: z.string().min(16),
+
+  // VAPID — opcionais: sem elas o backend segue funcionando, só as rotas de push
+  // devolvem erro. Gere com `node scripts/generate-vapid.js`.
+  VAPID_PUBLIC_KEY:  z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT:     z.string().default("mailto:noreply@financas-a-dois.app"),
 });
 
 const parsed = schema.safeParse(process.env);

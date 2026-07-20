@@ -10,6 +10,7 @@ import { familyRoutes } from "./routes/family/index.js";
 import { coupleAccountRoutes } from "./routes/couple-account/index.js";
 import { aiRoutes } from "./routes/ai/index.js";
 import { importRoutes } from "./routes/import/index.js";
+import { pushRoutes } from "./routes/push/index.js";
 
 async function build() {
   const app = Fastify({
@@ -33,6 +34,7 @@ async function build() {
   await app.register(coupleAccountRoutes, { prefix: "/couple-account" });
   await app.register(aiRoutes,            { prefix: "/ai" });
   await app.register(importRoutes,        { prefix: "/import" });
+  await app.register(pushRoutes,          { prefix: "/push" });
 
   return app;
 }

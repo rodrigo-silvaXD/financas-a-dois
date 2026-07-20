@@ -9,6 +9,8 @@ const withPWA = withPWAInit({
   reloadOnOnline: true,
   workboxOptions: {
     disableDevLogs: true,
+    // Handlers de Web Push são registrados via script separado importado no SW gerado.
+    importScripts: ["/push-sw.js"],
   },
 });
 
