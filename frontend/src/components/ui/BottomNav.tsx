@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { Home, List, Plus, Heart, User } from "lucide-react";
+import { Home, List, Plus, Heart, LayoutGrid } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { springTap } from "@/lib/motion";
 
@@ -14,8 +14,8 @@ const sideItems = [
 ] as const;
 
 const sideItemsRight = [
-  { href: "/casal",  label: "Casal",  icon: Heart },
-  { href: "/perfil", label: "Perfil", icon: User  },
+  { href: "/casal",  label: "Casal", icon: Heart      },
+  { href: "/perfil", label: "Menu",  icon: LayoutGrid },
 ] as const;
 
 export function BottomNav() {

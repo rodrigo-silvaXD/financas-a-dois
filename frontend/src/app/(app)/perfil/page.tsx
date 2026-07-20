@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronRight, Download, Fingerprint, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
+  Download, Fingerprint, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
   Tags, Target, Upload, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -69,9 +69,9 @@ export default function PerfilPage() {
 
   return (
     <main>
-      <TopBar title="Perfil" />
-      <section className="mx-auto max-w-md px-5 pt-4 space-y-8">
-        {/* ── Perfil ── */}
+      <TopBar title="Menu" />
+      <section className="mx-auto max-w-md px-5 pt-4 space-y-6">
+        {/* ── Você ── */}
         <SectionCard>
           <div className="flex items-center gap-3">
             <Avatar url={prof?.avatar_url} nome={prof?.nome} />
@@ -176,76 +176,42 @@ export default function PerfilPage() {
           </SectionCard>
         </div>
 
-        {/* ── Financeiro ── */}
+        {/* ── Atalhos (grid visual tipo app drawer) ── */}
         <div>
-          <SectionTitle>Financeiro</SectionTitle>
-          <div className="space-y-3">
-            <Link href="/perfil/categorias">
-              <Card interactive className="flex items-center gap-3 p-4">
-                <Tags size={20} className="text-ink-muted" />
-                <span className="flex-1 text-body text-ink">Minhas categorias</span>
-                <ChevronRight size={18} className="text-ink-subtle" />
-              </Card>
-            </Link>
-            <Link href="/perfil/recorrentes">
-              <Card interactive className="flex items-center gap-3 p-4">
-                <Repeat size={20} className="text-ink-muted" />
-                <span className="flex-1 text-body text-ink">Gastos recorrentes</span>
-                <ChevronRight size={18} className="text-ink-subtle" />
-              </Card>
-            </Link>
-            <Link href="/objetivos">
-              <Card interactive className="flex items-center gap-3 p-4">
-                <Target size={20} className="text-ink-muted" />
-                <span className="flex-1 text-body text-ink">Meus objetivos</span>
-                <ChevronRight size={18} className="text-ink-subtle" />
-              </Card>
-            </Link>
-            <Link href="/importar">
-              <Card interactive className="flex items-center gap-3 p-4">
-                <Upload size={20} className="text-ink-muted" />
-                <span className="flex-1 text-body text-ink">Importar extrato</span>
-                <ChevronRight size={18} className="text-ink-subtle" />
-              </Card>
-            </Link>
-            <Link href="/exportar">
-              <Card interactive className="flex items-center gap-3 p-4">
-                <Download size={20} className="text-ink-muted" />
-                <span className="flex-1 text-body text-ink">Exportar dados</span>
-                <ChevronRight size={18} className="text-ink-subtle" />
-              </Card>
-            </Link>
+          <SectionTitle>Atalhos</SectionTitle>
+          <div className="grid grid-cols-3 gap-3">
+            <ShortcutTile href="/perfil/categorias" icon={Tags}   label="Categorias"  tone="brand"   />
+            <ShortcutTile href="/perfil/recorrentes" icon={Repeat} label="Recorrentes" tone="brand"   />
+            <ShortcutTile href="/objetivos"          icon={Target} label="Objetivos"   tone="success" />
+            <ShortcutTile href="/importar"           icon={Upload} label="Importar"    tone="warning" />
+            <ShortcutTile href="/exportar"           icon={Download} label="Exportar"  tone="warning" />
           </div>
         </div>
 
-        {/* ── Preferências ── */}
+        {/* ── Ajustes (tema + biometria juntos) ── */}
         <div>
-          <SectionTitle>Preferências</SectionTitle>
+          <SectionTitle>Ajustes</SectionTitle>
           <SectionCard>
-            <p className="text-bodysm text-ink-muted mb-2">Tema</p>
-            <div className="grid grid-cols-3 gap-2 rounded-md bg-surface-muted p-1">
-              <ThemeChoice active={preference === "light"}  onClick={() => setPreference("light")}  icon={<Sun size={16} />}     label="Claro" />
-              <ThemeChoice active={preference === "dark"}   onClick={() => setPreference("dark")}   icon={<Moon size={16} />}    label="Escuro" />
-              <ThemeChoice active={preference === "system"} onClick={() => setPreference("system")} icon={<Monitor size={16} />} label="Auto" />
+            <div className="space-y-5">
+              <div>
+                <p className="text-bodysm text-ink-muted mb-2">Tema</p>
+                <div className="grid grid-cols-3 gap-2 rounded-md bg-surface-muted p-1">
+                  <ThemeChoice active={preference === "light"}  onClick={() => setPreference("light")}  icon={<Sun size={16} />}     label="Claro" />
+                  <ThemeChoice active={preference === "dark"}   onClick={() => setPreference("dark")}   icon={<Moon size={16} />}    label="Escuro" />
+                  <ThemeChoice active={preference === "system"} onClick={() => setPreference("system")} icon={<Monitor size={16} />} label="Auto" />
+                </div>
+              </div>
+              <div className="pt-4 border-t border-hairline">
+                <BiometriaControl />
+              </div>
             </div>
           </SectionCard>
         </div>
 
-        {/* ── Segurança ── */}
-        <div>
-          <SectionTitle>Segurança</SectionTitle>
-          <SectionCard>
-            <BiometriaControl />
-          </SectionCard>
-        </div>
-
-        {/* ── Conta ── */}
-        <div>
-          <SectionTitle>Conta</SectionTitle>
-          <Button variant="secondary" size="lg" className="w-full" onClick={sair}>
-            <LogOut size={18} /> Sair
-          </Button>
-        </div>
+        {/* ── Sair ── */}
+        <Button variant="secondary" size="lg" className="w-full" onClick={sair}>
+          <LogOut size={18} /> Sair
+        </Button>
 
         <p className="text-center text-caption text-ink-subtle pt-2 pb-4">Finanças a Dois · v{APP_VERSION}</p>
       </section>
@@ -302,6 +268,25 @@ function Avatar({ url, nome }: { url?: string | null; nome?: string | null }) {
     <div className="flex h-12 w-12 items-center justify-center rounded-pill bg-brand/10 text-brand text-heading">
       {inicial}
     </div>
+  );
+}
+
+function ShortcutTile({
+  href, icon: Icon, label, tone,
+}: { href: string; icon: typeof Tags; label: string; tone: "brand" | "success" | "warning" }) {
+  const toneClass =
+    tone === "brand"   ? "bg-brand/10 text-brand" :
+    tone === "success" ? "bg-success/10 text-success" :
+                         "bg-warning/10 text-warning";
+  return (
+    <Link href={href}>
+      <Card interactive className="flex flex-col items-center justify-center gap-2 aspect-square p-3">
+        <span className={cn("flex h-10 w-10 items-center justify-center rounded-md", toneClass)}>
+          <Icon size={20} strokeWidth={1.75} />
+        </span>
+        <span className="text-caption text-ink text-center">{label}</span>
+      </Card>
+    </Link>
   );
 }
 
