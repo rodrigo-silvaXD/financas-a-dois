@@ -28,10 +28,18 @@ export async function saveTransaction(userId: string, draft: TransactionDraft) {
   const parcelas = draft.parcelas && draft.parcelas > 1 ? draft.parcelas : 1;
   const parcelamentoId = parcelas > 1 ? uuid() : null;
 
+  // Distribui os centavos: cada parcela = floor(centavos_totais / N), e a PRIMEIRA
+  // absorve o resto. Evita 100/3 → 33.33*3 = 99.99 (a 1ª vira 33.34, restantes 33.33).
+  const totalCentavos = Math.round(draft.valor * parcelas * 100);
+  const parcelaCentavos = Math.floor(totalCentavos / parcelas);
+  const resto = totalCentavos - parcelaCentavos * parcelas;
+
   const rows = Array.from({ length: parcelas }, (_, i) => ({
     user_id: userId,
     tipo: draft.tipo,
-    valor: draft.valor,             // valor de cada parcela, não do total
+    valor: parcelas > 1
+      ? +((parcelaCentavos + (i === 0 ? resto : 0)) / 100).toFixed(2)
+      : draft.valor,
     categoria_id: draft.categoria_id,
     descricao: draft.descricao,
     data: parcelas > 1 ? addMonths(draft.data, i) : draft.data,

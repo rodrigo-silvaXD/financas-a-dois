@@ -70,20 +70,18 @@ export async function getMyFamilyContext(userId: string): Promise<FamilyContext 
   };
 }
 
-/** Cria a família + convite pendente do parceiro. Triggers cuidam do restante. */
-export async function createFamilyWithInvite(userId: string, nome: string, partnerEmail: string) {
+/** Cria a família + convite pendente do parceiro numa única RPC transacional
+ *  (evita corrida com RLS: a função `create_family_with_invite` faz tudo
+ *  como SECURITY DEFINER — família, couple_account, membro criador e convite).
+ *  Se o email já pertence a um usuário cadastrado, vincula direto como ativo.
+ */
+export async function createFamilyWithInvite(_userId: string, nome: string, partnerEmail: string) {
   const email = partnerEmail.trim().toLowerCase();
-  const { data: fam, error: e1 } = await supabase
-    .from("families")
-    .insert({ nome: nome.trim() || "Nossa Família", criado_por: userId })
-    .select("id")
-    .single();
-  if (e1) throw new Error(e1.message);
-
-  const { error: e2 } = await supabase
-    .from("family_members")
-    .insert({ family_id: fam.id, invited_email: email, status: "pendente" });
-  if (e2) throw new Error(e2.message);
+  const { error } = await supabase.rpc("create_family_with_invite", {
+    p_nome: nome.trim() || "Nossa Família",
+    p_invited_email: email || null,
+  });
+  if (error) throw new Error(error.message);
 }
 
 /** Convite pendente para o meu email (caso o parceiro me convidou depois do meu cadastro). */

@@ -1,8 +1,17 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { anthropic, ANTHROPIC_MODEL } from "../../lib/anthropic.js";
 import { clientFromRequest } from "../../lib/user-supabase.js";
+import { supabaseAdmin } from "../../lib/supabase.js";
 import { normalize } from "../../lib/normalize.js";
+
+async function requireUser(req: FastifyRequest) {
+  const auth = req.headers.authorization;
+  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return null;
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  return error ? null : data.user;
+}
 
 const parseTextSchema = z.object({
   texto: z.string().min(1),
@@ -34,6 +43,7 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Texto → estrutura de transação
   app.post("/parse-text", async (req, reply) => {
+    if (!(await requireUser(req))) return reply.unauthorized("Sem sessão válida.");
     const parsed = parseTextSchema.safeParse(req.body);
     if (!parsed.success) return reply.badRequest(parsed.error.message);
     const { texto, categorias, data_hoje } = parsed.data;
@@ -53,15 +63,17 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
         messages: [{ role: "user", content: texto }],
       });
       const block = msg.content.find((c: any) => c.type === "text");
-const raw = block?.type === "text" ? block.text : "";
+      const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
+      req.log.error({ err }, "parse-text failed");
       return reply.internalServerError(err instanceof Error ? err.message : "Falha na IA");
     }
   });
 
   // ── Foto de recibo → estrutura
   app.post("/parse-receipt", async (req, reply) => {
+    if (!(await requireUser(req))) return reply.unauthorized("Sem sessão válida.");
     const parsed = parseReceiptSchema.safeParse(req.body);
     if (!parsed.success) return reply.badRequest(parsed.error.message);
     const { image_base64, media_type, data_hoje } = parsed.data;
@@ -87,9 +99,10 @@ const raw = block?.type === "text" ? block.text : "";
         }],
       });
       const block = msg.content.find((c: any) => c.type === "text");
-const raw = block?.type === "text" ? block.text : "";
+      const raw = block?.type === "text" ? block.text : "";
       return extractJson(raw);
     } catch (err) {
+      req.log.error({ err }, "parse-receipt failed");
       return reply.internalServerError(err instanceof Error ? err.message : "Falha na IA");
     }
   });

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Fingerprint } from "lucide-react";
 import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/ui";
+import { ApiError } from "@/lib/api";
 import {
   authenticateBiometric, biometricSupported, isUnlocked, markUnlocked,
 } from "@/lib/webauthn";
@@ -27,17 +28,29 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
   const [erro, setErro] = useState<string | null>(null);
   const attempted = useRef(false);
 
+  const fallbackLogin = useCallback(async () => {
+    markUnlocked();
+    await signOut();
+    router.replace("/login");
+  }, [router, signOut]);
+
   const unlock = useCallback(async () => {
     setVerifying(true); setErro(null);
     try {
       await authenticateBiometric();
       setLocked(false);
-    } catch {
+    } catch (e) {
+      // 401 = sessão expirou no backend. Nada a fazer aqui — força logout limpo.
+      if (e instanceof ApiError && e.status === 401) {
+        setErro("Sua sessão expirou. Entre com email e senha.");
+        await fallbackLogin();
+        return;
+      }
       setErro("Não foi possível verificar. Tente de novo ou use email e senha.");
     } finally {
       setVerifying(false);
     }
-  }, []);
+  }, [fallbackLogin]);
 
   // Tenta automaticamente 1x ao abrir — igual apps de banco.
   useEffect(() => {
@@ -71,11 +84,7 @@ export function BiometricGate({ children }: { children: React.ReactNode }) {
           <Fingerprint size={18} /> Desbloquear
         </Button>
         <button
-          onClick={async () => {
-            markUnlocked();          // evita relock no próximo login
-            await signOut();
-            router.replace("/login");
-          }}
+          onClick={fallbackLogin}
           className="mt-4 text-bodysm text-brand font-semibold py-2"
         >
           Entrar com email e senha

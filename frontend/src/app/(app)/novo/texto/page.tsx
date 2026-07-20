@@ -125,9 +125,10 @@ export default function NovoTextoPage() {
     setLoading(true); setErro(null);
     try {
       // 1) Rule first — economiza chamada de IA se o pattern já é conhecido.
+      //    Se falhar (backend fora, 401, etc.), seguimos direto pro parse-text.
       const rule = await api<{ category_id: string | null }>(
         `/ai/suggest-category?descricao=${encodeURIComponent(texto)}`,
-      );
+      ).catch(() => ({ category_id: null }));
       if (rule.category_id) {
         setParsed({
           tipo: "gasto",

@@ -311,9 +311,16 @@ function CriarFamiliaForm({ onDone }: { onDone: () => void | Promise<void> }) {
   async function criar(e: FormEvent) {
     e.preventDefault();
     if (!user) return;
+    const emailNorm = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+      setErro("Informe um email válido do parceiro(a)."); return;
+    }
+    if (user.email && emailNorm === user.email.toLowerCase()) {
+      setErro("Use o email do parceiro(a), não o seu."); return;
+    }
     setSaving(true); setErro(null);
     try {
-      await createFamilyWithInvite(user.id, nome, email);
+      await createFamilyWithInvite(user.id, nome, emailNorm);
       await onDone();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha ao criar família");

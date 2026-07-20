@@ -43,11 +43,12 @@ export function TransactionForm({
   const [saving, setSaving]       = useState(false);
 
   useEffect(() => {
-    if (inicial?.tipo)         setTipo(inicial.tipo);
-    if (inicial?.valor)        setValor(inicial.valor);
-    if (inicial?.categoria_id) setCategoriaId(inicial.categoria_id);
-    if (inicial?.descricao)    setDescricao(inicial.descricao);
-    if (inicial?.data)         setData(inicial.data);
+    // ponytail: check contra undefined (não truthy) — valor 0 e descrição "" são inputs válidos.
+    if (inicial?.tipo !== undefined)          setTipo(inicial.tipo);
+    if (inicial?.valor !== undefined)         setValor(inicial.valor);
+    if (inicial?.categoria_id !== undefined)  setCategoriaId(inicial.categoria_id);
+    if (inicial?.descricao !== undefined)     setDescricao(inicial.descricao ?? "");
+    if (inicial?.data !== undefined)          setData(inicial.data);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inicial?.valor, inicial?.categoria_id, inicial?.tipo, inicial?.descricao, inicial?.data]);
 
@@ -62,6 +63,7 @@ export function TransactionForm({
         ? Math.max(2, Math.min(60, Number(parcelasStr) || 2))
         : 1;
       // Valor digitado é o TOTAL da compra parcelada — dividimos por N.
+      // O ajuste de centavos (100/3 = 33.33 * 3 = 99.99) fica com saveTransaction.
       const valorPorParcela = parcelas > 1 ? +(valor / parcelas).toFixed(2) : valor;
 
       await onSubmit({

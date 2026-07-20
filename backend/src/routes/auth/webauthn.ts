@@ -131,7 +131,16 @@ export const webauthnRoutes: FastifyPluginAsync = async (app) => {
 
     const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
     const creds = (meta.webauthn_credentials ?? []) as StoredCredential[];
-    if (creds.length === 0) return reply.badRequest("Nenhuma biometria cadastrada.");
+    if (creds.length === 0) {
+      // Auto-cura: se o flag ficou órfão (credencial sumiu), desativa para
+      // o usuário voltar ao login por senha sem ficar preso na tela de biometria.
+      if (meta.biometria_ativa) {
+        await supabaseAdmin.auth.admin.updateUserById(user.id, {
+          user_metadata: { ...meta, biometria_ativa: false },
+        });
+      }
+      return reply.badRequest("Nenhuma biometria cadastrada. Ative de novo pelo perfil.");
+    }
     const body = (req.body ?? {}) as { response?: AuthenticationResponseJSON };
 
     // Fase 1 — options.
