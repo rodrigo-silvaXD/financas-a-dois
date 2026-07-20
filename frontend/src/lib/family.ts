@@ -104,6 +104,21 @@ export async function acceptInvite(memberId: string, userId: string) {
   if (error) throw new Error(error.message);
 }
 
+/** Reenvia/altera o email do convite pendente da família criada pelo user.
+ *  Se o novo email já pertence a alguém cadastrado, vira membro ativo direto. */
+export async function updatePendingInvite(newEmail: string) {
+  const { error } = await supabase.rpc("update_pending_invite", {
+    p_new_email: newEmail.trim().toLowerCase(),
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Cancela o convite pendente da família criada pelo user. */
+export async function cancelPendingInvite() {
+  const { error } = await supabase.rpc("cancel_pending_invite");
+  if (error) throw new Error(error.message);
+}
+
 export type CoupleEntry = {
   id: string;
   couple_account_id: string;

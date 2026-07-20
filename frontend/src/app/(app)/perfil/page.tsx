@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { APP_VERSION } from "@/lib/app";
 import {
   createFamilyWithInvite, getMyFamilyContext, findPendingInviteForEmail, acceptInvite,
+  updatePendingInvite, cancelPendingInvite,
   type FamilyContext, type FamilyMember,
 } from "@/lib/family";
 import {
@@ -34,6 +35,7 @@ export default function PerfilPage() {
   const [inviteForMe, setInviteForMe] = useState<FamilyMember | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [editInviteOpen, setEditInviteOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -129,14 +131,42 @@ export default function PerfilPage() {
                     </div>
                   </div>
                 ) : fam.pendingInvite ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-pill bg-surface-muted text-ink-muted">
-                      <Mail size={18} />
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-pill bg-surface-muted text-ink-muted">
+                        <Mail size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-body text-ink truncate">{fam.pendingInvite.invited_email}</p>
+                        <Badge tone="warning">Convite pendente</Badge>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-body text-ink truncate">{fam.pendingInvite.invited_email}</p>
-                      <Badge tone="warning">Convite pendente</Badge>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="secondary" size="lg" onClick={() => setEditInviteOpen(true)}>
+                        Reenviar/alterar
+                      </Button>
+                      <Button
+                        variant="secondary" size="lg"
+                        onClick={async () => {
+                          try {
+                            await cancelPendingInvite();
+                            toast.success("Convite cancelado");
+                            await load();
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : "Falha ao cancelar");
+                          }
+                        }}
+                      >
+                        Cancelar
+                      </Button>
                     </div>
+                  </div>
+                ) : fam.family.criado_por === user?.id ? (
+                  <div className="space-y-3">
+                    <p className="text-bodysm text-ink-muted">Sem parceiro(a) por enquanto.</p>
+                    <Button size="lg" className="w-full" onClick={() => setEditInviteOpen(true)}>
+                      Convidar parceiro(a)
+                    </Button>
                   </div>
                 ) : (
                   <p className="text-bodysm text-ink-muted">Sem parceiro(a) por enquanto.</p>
@@ -234,6 +264,18 @@ export default function PerfilPage() {
           onDone={async () => { setInviteOpen(false); await load(); toast.success("Família criada"); }}
         />
       </BottomSheet>
+
+      {/* Reenviar / alterar convite pendente */}
+      <BottomSheet
+        open={editInviteOpen}
+        onClose={() => setEditInviteOpen(false)}
+        title={fam?.pendingInvite ? "Reenviar convite" : "Convidar parceiro(a)"}
+      >
+        <ReenviarConviteForm
+          emailAtual={fam?.pendingInvite?.invited_email ?? ""}
+          onDone={async () => { setEditInviteOpen(false); await load(); toast.success("Convite atualizado"); }}
+        />
+      </BottomSheet>
     </main>
   );
 }
@@ -306,6 +348,49 @@ function EditarPerfilForm({ inicial, onDone }: {
       <Input name="nome" label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
       <Input name="avatar" label="URL do avatar (opcional)" placeholder="https://…"
         value={avatar} onChange={(e) => setAvatar(e.target.value)} hint="Cole a URL de uma foto. Upload por arquivo chega no próximo passo." />
+      {erro && <p className="text-caption text-danger">{erro}</p>}
+      <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
+    </form>
+  );
+}
+
+function ReenviarConviteForm({ emailAtual, onDone }: {
+  emailAtual: string; onDone: () => void | Promise<void>;
+}) {
+  const { user } = useAuth();
+  const [email, setEmail] = useState(emailAtual);
+  const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => { setEmail(emailAtual); }, [emailAtual]);
+
+  async function salvar(e: FormEvent) {
+    e.preventDefault();
+    const emailNorm = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm)) {
+      setErro("Informe um email válido."); return;
+    }
+    if (user?.email && emailNorm === user.email.toLowerCase()) {
+      setErro("Use o email do parceiro(a), não o seu."); return;
+    }
+    setSaving(true); setErro(null);
+    try {
+      await updatePendingInvite(emailNorm);
+      await onDone();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Falha ao atualizar convite");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={salvar} className="space-y-3">
+      <Input
+        name="email" type="email" label="Email do parceiro(a)" placeholder="parceiro@email.com"
+        value={email} onChange={(e) => setEmail(e.target.value)} required
+        hint="Ao se cadastrar com esse email, ele(a) vira parceiro automaticamente. Se já tem conta, vira parceiro na hora."
+      />
       {erro && <p className="text-caption text-danger">{erro}</p>}
       <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
     </form>
