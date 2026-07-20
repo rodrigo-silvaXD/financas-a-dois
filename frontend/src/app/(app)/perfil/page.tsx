@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronRight, Download, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
+  ChevronRight, Download, Fingerprint, LogOut, Mail, Pencil, Repeat, Sun, Moon, Monitor,
   Tags, Target, Upload, Users,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
@@ -18,6 +18,9 @@ import {
   createFamilyWithInvite, getMyFamilyContext, findPendingInviteForEmail, acceptInvite,
   type FamilyContext, type FamilyMember,
 } from "@/lib/family";
+import {
+  disableBiometric, platformAuthAvailable, registerBiometric,
+} from "@/lib/webauthn";
 import type { Profile } from "@/lib/types";
 
 export default function PerfilPage() {
@@ -198,6 +201,14 @@ export default function PerfilPage() {
           </SectionCard>
         </div>
 
+        {/* ── Segurança ── */}
+        <div>
+          <SectionTitle>Segurança</SectionTitle>
+          <SectionCard>
+            <BiometriaControl />
+          </SectionCard>
+        </div>
+
         {/* ── Conta ── */}
         <div>
           <SectionTitle>Conta</SectionTitle>
@@ -298,6 +309,105 @@ function EditarPerfilForm({ inicial, onDone }: {
       {erro && <p className="text-caption text-danger">{erro}</p>}
       <Button type="submit" size="lg" className="w-full" loading={saving}>Salvar</Button>
     </form>
+  );
+}
+
+function BiometriaControl() {
+  const { user } = useAuth();
+  const toast = useToast();
+  const [ativa, setAtiva] = useState<boolean>(!!user?.user_metadata?.biometria_ativa);
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setAtiva(!!user?.user_metadata?.biometria_ativa);
+  }, [user?.user_metadata?.biometria_ativa]);
+
+  useEffect(() => {
+    platformAuthAvailable().then(setSupported);
+  }, []);
+
+  async function ativar() {
+    setBusy(true);
+    try {
+      await registerBiometric();
+      setAtiva(true);
+      toast.success("Biometria ativada neste aparelho");
+    } catch {
+      toast.error("Não foi possível ativar a biometria");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reiniciar() {
+    setBusy(true);
+    try {
+      await disableBiometric();
+      await registerBiometric();
+      setAtiva(true);
+      toast.success("Biometria reiniciada neste aparelho");
+    } catch {
+      toast.error("Não foi possível reiniciar. Tente de novo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function desativar() {
+    setBusy(true);
+    try {
+      await disableBiometric();
+      setAtiva(false);
+      toast.success("Biometria desativada");
+    } catch {
+      toast.error("Falha ao desativar");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (supported === false) {
+    return (
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-surface-muted p-2 text-ink-muted"><Fingerprint size={18} /></div>
+        <div className="min-w-0">
+          <p className="text-body text-ink">Biometria indisponível</p>
+          <p className="text-caption text-ink-subtle mt-0.5">Este navegador/aparelho não suporta digital ou reconhecimento facial.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="rounded-md bg-brand/10 p-2 text-brand"><Fingerprint size={18} /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-body text-ink">Login com biometria</p>
+          <p className="text-caption text-ink-subtle mt-0.5">
+            {ativa
+              ? "Ativa neste aparelho. Se trocou de celular, reinicie pra cadastrar de novo."
+              : "Desbloqueie o app com digital ou Face ID."}
+          </p>
+        </div>
+      </div>
+
+      {ativa ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" size="lg" onClick={reiniciar} loading={busy}>
+            Reiniciar
+          </Button>
+          <Button variant="secondary" size="lg" onClick={desativar} loading={busy}>
+            Desativar
+          </Button>
+        </div>
+      ) : (
+        <Button size="lg" className="w-full" onClick={ativar} loading={busy}>
+          <Fingerprint size={18} /> Ativar biometria
+        </Button>
+      )}
+    </div>
   );
 }
 

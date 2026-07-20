@@ -58,6 +58,20 @@ async function userFromRequest(req: FastifyRequest) {
 }
 
 export const webauthnRoutes: FastifyPluginAsync = async (app) => {
+  // ── POST /auth/webauthn/disable ───────────────────────────────────────
+  // Limpa credenciais WebAuthn e o flag biometria_ativa. Usado para reativar
+  // do zero num novo aparelho (as chaves são específicas por device).
+  app.post("/webauthn/disable", async (req, reply) => {
+    const user = await userFromRequest(req);
+    if (!user) return reply.unauthorized("Sem sessão válida.");
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      user_metadata: { ...meta, webauthn_credentials: [], biometria_ativa: false },
+    });
+    if (error) return reply.internalServerError(error.message);
+    return { ok: true };
+  });
+
   // ── POST /auth/webauthn/register ──────────────────────────────────────
   app.post("/webauthn/register", async (req, reply) => {
     const user = await userFromRequest(req);

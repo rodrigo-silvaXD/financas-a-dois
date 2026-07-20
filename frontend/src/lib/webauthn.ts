@@ -37,6 +37,16 @@ export async function registerBiometric(): Promise<void> {
   markUnlocked();
 }
 
+/** Remove todas as credenciais e desativa a biometria. Usado pra reativar num
+ *  novo aparelho (passkey é atrelado ao device — trocar de aparelho requer
+ *  cadastrar de novo). Após chamar, o `dismissed` também é resetado pra o
+ *  prompt de ativação aparecer no próximo login. */
+export async function disableBiometric(): Promise<void> {
+  await api("/auth/webauthn/disable", { method: "POST", body: JSON.stringify({}) });
+  await supabase.auth.refreshSession();
+  if (typeof window !== "undefined") localStorage.removeItem(DISMISSED_KEY);
+}
+
 /** Pede a biometria e valida no backend. Lança se falhar/cancelar. */
 export async function authenticateBiometric(): Promise<void> {
   const options = await api<PublicKeyCredentialRequestOptionsJSON>(
