@@ -5,12 +5,17 @@ import { clientFromRequest } from "../../lib/user-supabase.js";
 import { supabaseAdmin } from "../../lib/supabase.js";
 import { normalize } from "../../lib/normalize.js";
 
-async function requireUser(req: FastifyRequest) {
+async function requireUser(req: FastifyRequest): Promise<{ ok: true; user: unknown } | { ok: false; reason: string }> {
   const auth = req.headers.authorization;
-  const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
-  if (!token) return null;
+  if (!auth) return { ok: false, reason: "sem header Authorization" };
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+  if (!token) return { ok: false, reason: "header Authorization sem 'Bearer '" };
   const { data, error } = await supabaseAdmin.auth.getUser(token);
-  return error ? null : data.user;
+  if (error) {
+    req.log.warn({ err: error.message }, "getUser falhou — token inválido ou projeto Supabase diferente do backend");
+    return { ok: false, reason: `token não verifica (${error.message})` };
+  }
+  return { ok: true, user: data.user };
 }
 
 const parseTextSchema = z.object({
@@ -43,7 +48,8 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Texto → estrutura de transação
   app.post("/parse-text", async (req, reply) => {
-    if (!(await requireUser(req))) return reply.unauthorized("Sem sessão válida.");
+    const auth = await requireUser(req);
+    if (!auth.ok) return reply.unauthorized(auth.reason);
     const parsed = parseTextSchema.safeParse(req.body);
     if (!parsed.success) return reply.badRequest(parsed.error.message);
     const { texto, categorias, data_hoje } = parsed.data;
@@ -73,7 +79,8 @@ export const aiRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Foto de recibo → estrutura
   app.post("/parse-receipt", async (req, reply) => {
-    if (!(await requireUser(req))) return reply.unauthorized("Sem sessão válida.");
+    const auth = await requireUser(req);
+    if (!auth.ok) return reply.unauthorized(auth.reason);
     const parsed = parseReceiptSchema.safeParse(req.body);
     if (!parsed.success) return reply.badRequest(parsed.error.message);
     const { image_base64, media_type, data_hoje } = parsed.data;
